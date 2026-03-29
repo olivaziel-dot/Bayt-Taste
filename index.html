@@ -1510,7 +1510,8 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
 const SUPABASE_URL = "https://zobuswshitvhyebkqzya.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_VSli61KD563Oa0aSAaKYTg_PgrRBX94";
 
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 /* ─── PAGE ROUTER ─── */
 function go(name){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -1545,6 +1546,12 @@ function eyeToggle(id,btn){
   const i=document.getElementById(id);
   i.type=i.type==='password'?'text':'password';
   btn.textContent=i.type==='password'?'👁':'🙈';
+}
+   function scrollSection(id) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+}
+   function go(path) {
+  window.location.href = path;
 }
 function regTab(type){
   document.getElementById('reg-c').style.display=type==='customer'?'block':'none';
