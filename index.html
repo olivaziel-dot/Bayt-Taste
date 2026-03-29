@@ -1556,7 +1556,9 @@ function pickPlan(el){
   el.closest('.plan-picker').querySelectorAll('.plan-opt').forEach(p=>p.classList.remove('sel'));
   el.classList.add('sel');
 }
-
+function go(path) {
+  window.location.href = path;
+}
 /* ─── LOGIN HANDLER ─── */
 async function doLogin(){
   const email = document.getElementById('li-email').value;
