@@ -1542,30 +1542,29 @@ function fillLogin(e,p){
   document.getElementById('li-email').value=e;
   document.getElementById('li-pwd').value=p;
 }
+/* ─── HELPER ─── */
 function eyeToggle(id,btn){
   const i=document.getElementById(id);
   i.type=i.type==='password'?'text':'password';
   btn.textContent=i.type==='password'?'👁':'🙈';
 }
-   function scrollSection(id) {
-  document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-}
-   function go(path) {
-  window.location.href = path;
-}
+
+// HIER STAND DAS BÖSE GO() -> GELÖSCHT
+
 function regTab(type){
   document.getElementById('reg-c').style.display=type==='customer'?'block':'none';
   document.getElementById('reg-r').style.display=type==='restaurant'?'block':'none';
   document.getElementById('tab-c').classList.toggle('active',type==='customer');
   document.getElementById('tab-r').classList.toggle('active',type==='restaurant');
 }
+
 function pickPlan(el){
   el.closest('.plan-picker').querySelectorAll('.plan-opt').forEach(p=>p.classList.remove('sel'));
   el.classList.add('sel');
 }
-function go(path) {
-  window.location.href = path;
-}
+
+// HIER STAND NOCHMAL DAS BÖSE GO() -> GELÖSCHT
+
 /* ─── LOGIN HANDLER ─── */
 async function doLogin(){
   const email = document.getElementById('li-email').value;
@@ -1576,17 +1575,13 @@ async function doLogin(){
     return;
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if(error){
     toast(error.message,'err');
     return;
   }
 
-  // Profil holen
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('*')
@@ -1598,7 +1593,7 @@ async function doLogin(){
     return;
   }
 
-  // ROLE entscheidet wohin
+  // Das hier nutzt jetzt wieder dein ECHTES go('manager') etc.
   if(profile.role === 'manager'){
     go('manager');
     initManager();
