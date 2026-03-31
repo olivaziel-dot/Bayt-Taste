@@ -1621,6 +1621,9 @@ async function doRegister(type){
   let password = '';
   let name = '';
 
+  let restaurantName = '';
+  let restaurantLocation = '';
+
   if(type === 'customer'){
     const firstName = document.querySelector('#reg-c input[placeholder="Karim"]')?.value?.trim() || '';
     const lastName = document.querySelector('#reg-c input[placeholder="Hassan"]')?.value?.trim() || '';
@@ -1632,28 +1635,34 @@ async function doRegister(type){
     const lastName = document.querySelector('#reg-r input[placeholder="Salameh"]')?.value?.trim() || '';
     email = document.querySelector('#reg-r input[type="email"]')?.value?.trim() || '';
     password = document.getElementById('rp-r')?.value?.trim() || '';
-    const restaurantName = document.querySelector('#reg-r input[placeholder="e.g. Burgerlicious Beirut"]')?.value?.trim() || '';
-    name = restaurantName || `${firstName} ${lastName}`.trim();
+    restaurantName = document.querySelector('#reg-r input[placeholder="e.g. Burgerlicious Beirut"]')?.value?.trim() || '';
+    restaurantLocation = document.querySelector('#reg-r input[placeholder="Street, District, Beirut"]')?.value?.trim() || '';
+    name = `${firstName} ${lastName}`.trim();
   }
 
   if(!email || !password || !name){
-    toast('Fill all fields','err');
+    toast('Fill all required fields','err');
+    return;
+  }
+
+  if(type === 'restaurant' && !restaurantName){
+    toast('Restaurant name is required','err');
     return;
   }
 
   const { data, error } = await supabaseClient.auth.signUp({
-    email: email,
-    password: password
+    email,
+    password
   });
 
   if(error){
-    toast(error.message,'err');
+    toast(error.message, 'err');
     return;
   }
 
   const user = data.user;
   if(!user){
-    toast('User could not be created','err');
+    toast('User could not be created', 'err');
     return;
   }
 
@@ -1661,17 +1670,32 @@ async function doRegister(type){
     .from('profiles')
     .insert([{
       id: user.id,
-      email: email,
-      name: name,
+      email,
+      name,
       role: type
     }]);
 
   if(profileError){
-    toast(profileError.message,'err');
+    toast(profileError.message, 'err');
     return;
   }
 
-  toast('Account created!','ok');
+  if(type === 'restaurant'){
+    const { error: restaurantError } = await supabaseClient
+      .from('restaurants')
+      .insert([{
+        owner_id: user.id,
+        name: restaurantName,
+        location: restaurantLocation || null
+      }]);
+
+    if(restaurantError){
+      toast(restaurantError.message, 'err');
+      return;
+    }
+  }
+
+  toast('Account created!', 'ok');
 
   if(type === 'restaurant'){
     go('restaurant');
