@@ -1934,6 +1934,22 @@ function initCustomer(){
     return;
   }
 
+  // 🔍 DEBUG PAYLOAD
+  console.log('OFFER PAYLOAD', {
+    restaurant_id: restaurantId,
+    title,
+    short_desc: shortDesc,
+    full_desc: fullDesc,
+    discount_type: discountType,
+    discount_value: discountValue,
+    original_price: originalPrice,
+    valid_from: validFrom,
+    valid_until: validUntil,
+    start_time: startTime,
+    end_time: endTime,
+    status
+  });
+
   const { error } = await supabaseClient
     .from('offers')
     .insert([{
@@ -1952,7 +1968,8 @@ function initCustomer(){
     }]);
 
   if(error){
-    console.error('Offer save error:', error);
+    console.error('Offer save error FULL:', JSON.stringify(error, null, 2));
+    console.error('Offer save error RAW:', error);
     toast(error.message || 'Could not save offer', 'err');
     return;
   }
