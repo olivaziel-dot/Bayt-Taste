@@ -877,13 +877,13 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
         <!-- CUSTOMER FORM -->
         <div id="reg-c">
           <div class="two-col">
-            <div class="form-group"><label>First Name</label><input class="input-field" placeholder="Samir"/></div>
+            <div class="form-group"><label>First Name</label><input class="input-field" id="reg-c-firstname" placeholder="Samir"/></div>
             <div class="form-group"><label>Last Name</label><input class="input-field" placeholder="Ghossen"/></div>
           </div>
-          <div class="form-group"><label>Email</label><input class="input-field" type="email" placeholder="you@example.com"/></div>
-          <div class="form-group"><label>Phone Number</label><input class="input-field" type="tel" placeholder="+961 3 123 456"/></div>
+          <div class="form-group"><label>Email</label><input class="input-field" id="reg-c-email" type="email" placeholder="you@example.com"/></div>
+          <div class="form-group"><label>Phone Number</label><input class="input-field" id="reg-c-phone" type="tel" placeholder="+961 3 123 456"/></div>
           <div class="form-group"><label>Your District</label>
-            <select class="input-field">
+            <select class="input-field" id="reg-c-district">
   <option>Beirut – Achrafieh</option>
   <option>Beirut – Ain El Mreisseh</option>
   <option>Beirut – Badaro</option>
@@ -964,14 +964,14 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
         </div>
         <!-- RESTAURANT FORM -->
         <div id="reg-r" style="display:none">
-          <div class="form-group"><label>Restaurant Name</label><input class="input-field" placeholder="e.g. Burgerlicious Beirut"/></div>
+          <div class="form-group"><label>Restaurant Name</label><input class="input-field" id="reg-r-restaurant-name" placeholder="e.g. Burgerlicious Beirut"/></div>
           <div class="two-col">
-            <div class="form-group"><label>Owner First Name</label><input class="input-field" placeholder="Rania"/></div>
+            <div class="form-group"><label>Owner First Name</label><input class="input-field" id="reg-c-lastname" placeholder="Rania"/></div>
             <div class="form-group"><label>Owner Last Name</label><input class="input-field" placeholder="Salameh"/></div>
           </div>
-          <div class="form-group"><label>Business Email</label><input class="input-field" type="email" placeholder="info@restaurant.com"/></div>
-          <div class="form-group"><label>Phone</label><input class="input-field" type="tel" placeholder="+961 1 234 567"/></div>
-          <div class="form-group"><label>Address</label><input class="input-field" placeholder="Street, District, Beirut"/></div>
+          <div class="form-group"><label>Business Email</label><input class="input-field" id="reg-r-email" type="email" placeholder="info@restaurant.com"/></div>
+          <div class="form-group"><label>Phone</label><input class="input-field" id="reg-r-phone" type="tel" placeholder="+961 1 234 567"/></div>
+          <div class="form-group"><label>Address</label><input class="input-field" id="reg-r-location" placeholder="Street, District, Beirut"/></div>
           <div class="form-group"><label>Cuisine Type</label>
             <select class="input-field"><option>Lebanese / Middle Eastern</option><option>American / Burgers</option><option>Italian / Pizza</option><option>Japanese / Sushi</option><option>Mediterranean</option><option>French</option><option>Indian</option><option>Mexican</option><option>Asian Fusion</option><option>Other</option></select>
           </div>
@@ -1681,34 +1681,46 @@ async function doRegister(type){
   let password = '';
   let name = '';
   let planCode = 'free_trial';
+
   let restaurantName = '';
   let restaurantLocation = '';
 
   if(type === 'customer'){
-    const firstName = document.querySelector('#reg-c input[placeholder="Karim"]')?.value?.trim() || '';
-    const lastName = document.querySelector('#reg-c input[placeholder="Hassan"]')?.value?.trim() || '';
-    email = document.querySelector('#reg-c input[type="email"]')?.value?.trim() || '';
+    const firstName = document.getElementById('reg-c-firstname')?.value?.trim() || '';
+    const lastName = document.getElementById('reg-c-lastname')?.value?.trim() || '';
+    email = document.getElementById('reg-c-email')?.value?.trim() || '';
     password = document.getElementById('rp-c')?.value?.trim() || '';
     name = `${firstName} ${lastName}`.trim();
-     const selectedPlanEl = document.querySelector('#customer-plan-picker .plan-opt.sel');
-planCode = selectedPlanEl?.dataset?.plan || 'free_trial';
+
+    const selectedPlanEl = document.querySelector('#customer-plan-picker .plan-opt.sel');
+    planCode = selectedPlanEl?.dataset?.plan || 'free_trial';
   } else {
-    const firstName = document.querySelector('#reg-r input[placeholder="Rania"]')?.value?.trim() || '';
-    const lastName = document.querySelector('#reg-r input[placeholder="Salameh"]')?.value?.trim() || '';
-    email = document.querySelector('#reg-r input[type="email"]')?.value?.trim() || '';
+    const firstName = document.getElementById('reg-r-firstname')?.value?.trim() || '';
+    const lastName = document.getElementById('reg-r-lastname')?.value?.trim() || '';
+    email = document.getElementById('reg-r-email')?.value?.trim() || '';
     password = document.getElementById('rp-r')?.value?.trim() || '';
-    restaurantName = document.querySelector('#reg-r input[placeholder="e.g. Burgerlicious Beirut"]')?.value?.trim() || '';
-    restaurantLocation = document.querySelector('#reg-r input[placeholder="Street, District, Beirut"]')?.value?.trim() || '';
+    restaurantName = document.getElementById('reg-r-restaurant-name')?.value?.trim() || '';
+    restaurantLocation = document.getElementById('reg-r-location')?.value?.trim() || '';
     name = `${firstName} ${lastName}`.trim();
   }
 
+  console.log('REGISTER DEBUG', {
+    type,
+    email,
+    passwordLength: password.length,
+    name,
+    planCode,
+    restaurantName,
+    restaurantLocation
+  });
+
   if(!email || !password || !name){
-    toast('Fill all required fields','err');
+    toast('Fill all required fields', 'err');
     return;
   }
 
   if(type === 'restaurant' && !restaurantName){
-    toast('Restaurant name is required','err');
+    toast('Restaurant name is required', 'err');
     return;
   }
 
@@ -1731,12 +1743,12 @@ planCode = selectedPlanEl?.dataset?.plan || 'free_trial';
   const { error: profileError } = await supabaseClient
     .from('profiles')
     .insert([{
-  id: user.id,
-  email,
-  name,
-  role: type,
-  plan_code: type === 'customer' ? planCode : 'free_trial'
-}]);
+      id: user.id,
+      email,
+      name,
+      role: type,
+      plan_code: type === 'customer' ? planCode : 'free_trial'
+    }]);
 
   if(profileError){
     toast(profileError.message, 'err');
@@ -2253,7 +2265,7 @@ window.addEventListener('DOMContentLoaded',()=>{buildHours();});
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);padding:36px">
         <h2 style="font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:700;margin-bottom:20px;color:var(--text)">Send Us a Message</h2>
         <div class="two-col">
-          <div class="form-group"><label>First Name</label><input class="input-field" placeholder="Samir"/></div>
+          <div class="form-group"><label>First Name</label><input class="input-field" id="reg-c-firstname" placeholder="Samir"/></div>
           <div class="form-group"><label>Last Name</label><input class="input-field" placeholder="Ghossen"/></div>
         </div>
         <div class="form-group"><label>Email Address</label><input class="input-field" type="email" id="contact-email" placeholder="you@example.com"/></div>
