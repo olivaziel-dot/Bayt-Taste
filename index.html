@@ -1096,7 +1096,7 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
         <div class="sb-link" onclick="pane('r-billing',this)"><span class="ico">💳</span>Billing</div>
       </nav>
       <div class="sb-foot">
-        <div class="sb-rest-name">Burgerlicious Beirut</div>
+        <div class="sb-rest-name" id="restaurant-display-name">Restaurant</div>
         <div class="sb-status">Live & Active</div>
         <button class="btn-ghost" style="width:100%;margin-top:10px" onclick="go('landing')">↩ Sign Out</button>
       </div>
@@ -1681,6 +1681,7 @@ async function doRegister(type){
   let password = '';
   let name = '';
   let planCode = 'free_trial';
+  let district = '';
 
   let restaurantName = '';
   let restaurantLocation = '';
@@ -1691,6 +1692,7 @@ async function doRegister(type){
     email = document.getElementById('reg-c-email')?.value?.trim() || '';
     password = document.getElementById('rp-c')?.value?.trim() || '';
     name = `${firstName} ${lastName}`.trim();
+    district = document.getElementById('reg-c-district')?.value?.trim() || '';
 
     const selectedPlanEl = document.querySelector('#customer-plan-picker .plan-opt.sel');
     planCode = selectedPlanEl?.dataset?.plan || 'free_trial';
@@ -1743,12 +1745,13 @@ async function doRegister(type){
   const { error: profileError } = await supabaseClient
     .from('profiles')
     .insert([{
-      id: user.id,
-      email,
-      name,
-      role: type,
-      plan_code: type === 'customer' ? planCode : 'free_trial'
-    }]);
+  id: user.id,
+  email,
+  name,
+  role: type,
+  plan_code: type === 'customer' ? planCode : 'free_trial',
+  district: type === 'customer' ? district : null
+}]);
 
   if(profileError){
     toast(profileError.message, 'err');
@@ -1801,6 +1804,7 @@ function paneM(id, linkEl){
 
 /* ─── RESTAURANT INIT ─── */
 function initRestaurant(){
+  loadCurrentRestaurant();
   buildHours();
 }
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
@@ -1988,6 +1992,25 @@ function openDeal(id){
   document.getElementById('deal-overlay').classList.add('open');
   document.body.style.overflow='hidden';
   startCouponTimer(d.dealKey);
+}
+   async function loadCurrentRestaurant(){
+  const { data: authData, error: authError } = await supabaseClient.auth.getUser();
+
+  if(authError || !authData?.user) return;
+
+  const { data: restaurant, error } = await supabaseClient
+    .from('restaurants')
+    .select('*')
+    .eq('owner_id', authData.user.id)
+    .single();
+
+  if(error){
+    console.error('Error loading restaurant:', error);
+    return;
+  }
+
+  const nameEl = document.getElementById('restaurant-display-name');
+  if(nameEl) nameEl.textContent = restaurant.name || 'Restaurant';
 }
 function closeModal(){
   document.getElementById('deal-overlay').classList.remove('open');
