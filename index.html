@@ -1174,17 +1174,20 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
               <div class="form-group"><label>Original Price ($)</label><input class="input-field" id="offer-original-price" placeholder="e.g. 25.00"/></div>
             </div>
             <div class="form-group"><label>Category Tags</label>
-              <div class="chip-group">
-                <label class="chip on" onclick="this.classList.toggle('on')">🍔 Burgers</label>
-                <label class="chip" onclick="this.classList.toggle('on')">🍕 Pizza</label>
-                <label class="chip" onclick="this.classList.toggle('on')">🥗 Lebanese</label>
-                <label class="chip" onclick="this.classList.toggle('on')">🍣 Sushi</label>
-                <label class="chip" onclick="this.classList.toggle('on')">☕ Brunch</label>
-                <label class="chip" onclick="this.classList.toggle('on')">🥩 Grill</label>
-                <label class="chip" onclick="this.classList.toggle('on')">🍰 Desserts</label>
-                <label class="chip" onclick="this.classList.toggle('on')">🍹 Drinks</label>
-              </div>
-            </div>
+  <div class="chip-group" id="offer-category-group">
+    <label class="chip on" data-category="burger" onclick="selectOfferCategory(this)">🍔 Burgers</label>
+    <label class="chip" data-category="pizza" onclick="selectOfferCategory(this)">🍕 Pizza</label>
+    <label class="chip" data-category="lebanese" onclick="selectOfferCategory(this)">🥗 Lebanese</label>
+   <label class="chip" data-category="lebanese" onclick="selectOfferCategory(this)">☀️ Manakish</label>
+    <label class="chip" data-category="sushi" onclick="selectOfferCategory(this)">🍣 Sushi</label>
+    <label class="chip" data-category="brunch" onclick="selectOfferCategory(this)">☕ Brunch</label>
+    <label class="chip" data-category="grill" onclick="selectOfferCategory(this)">🥩 Grill</label>
+    <label class="chip" data-category="desserts" onclick="selectOfferCategory(this)">🍰 Desserts</label>
+    <label class="chip" data-category="drinks" onclick="selectOfferCategory(this)">🍹 Drinks</label>
+    <label class="chip" data-category="drinks" onclick="selectOfferCategory(this)">✨ More</label>
+
+           </div>
+         </div>
           </div>
           <div class="panel">
             <div class="panel-head">Validity & Schedule</div>
@@ -1631,6 +1634,13 @@ function regTab(type){
   document.getElementById('tab-c').classList.toggle('active',type==='customer');
   document.getElementById('tab-r').classList.toggle('active',type==='restaurant');
 }
+   function selectOfferCategory(el){
+  const wrap = document.getElementById('offer-category-group');
+  if(!wrap) return;
+
+  wrap.querySelectorAll('.chip').forEach(chip => chip.classList.remove('on'));
+  el.classList.add('on');
+}
 
 function pickPlan(el){
   const picker = el.closest('.plan-picker');
@@ -1929,12 +1939,14 @@ function initCustomer(){
   const startTime = document.getElementById('offer-start-time')?.value || null;
   const endTime = document.getElementById('offer-end-time')?.value || null;
 
+  const selectedCategoryEl = document.querySelector('#offer-category-group .chip.on');
+  const category = selectedCategoryEl?.dataset?.category || null;
+
   if(!title){
     toast('Offer title is required', 'err');
     return;
   }
 
-  // 🔍 DEBUG PAYLOAD
   console.log('OFFER PAYLOAD', {
     restaurant_id: restaurantId,
     title,
@@ -1943,6 +1955,7 @@ function initCustomer(){
     discount_type: discountType,
     discount_value: discountValue,
     original_price: originalPrice,
+    category,
     valid_from: validFrom,
     valid_until: validUntil,
     start_time: startTime,
@@ -1960,6 +1973,7 @@ function initCustomer(){
       discount_type: discountType,
       discount_value: discountValue,
       original_price: originalPrice,
+      category,
       valid_from: validFrom,
       valid_until: validUntil,
       start_time: startTime,
