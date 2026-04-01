@@ -1867,9 +1867,9 @@ function addTC(){
 
 /* ─── CUSTOMER INIT ─── */
 let activeFilter='all';
-function initCustomer(){
-  loadCurrentUserProfile();
-  renderDeals();
+async function initCustomer(){
+  await loadCurrentUserProfile();
+  await loadCustomerDeals();
 }
    async function loadRestaurantOffers(){
   const restaurantId = await getCurrentRestaurantId();
@@ -2038,17 +2038,7 @@ function setFilter(el,f){
   document.querySelectorAll('.f-chip').forEach(c=>c.classList.remove('on'));
   el.classList.add('on');activeFilter=f;renderDeals();
 }
-
-const DEALS=[
-  {id:1,title:'30% Off Entire Menu',restaurant:'Burgerlicious Beirut',district:'Mar Mikhael',cat:'burger',time:'lunch',img:'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&q=75',disc:'30%',orig:'$18.00',price:'$12.60',desc:'Enjoy any item from our full menu at 30% off, valid Monday to Friday at lunch.',tc:['Valid Mon–Fri, 12:00–16:00','Dine-in only','Cannot be combined with other offers','Max 1 per member per day'],dealKey:'BURG'},
-  {id:2,title:'2 Mains, 1 Free',restaurant:'Liza Beirut',district:'Gemmayzeh',cat:'lebanese',time:'dinner',img:'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&q=75',disc:'33%',orig:'$45.00',price:'$30.00',desc:'Order any 2 main courses from our Lebanese menu and receive the cheaper one free.',tc:['Valid Mon–Thu dinner','Minimum 2 mains required','Free item = lower priced of the two','Reservations recommended'],dealKey:'LIZA'},
-  {id:3,title:'Free Miso Soup with Combo',restaurant:'Sushi Nori',district:'Downtown',cat:'sushi',time:'lunch',img:'https://images.unsplash.com/photo-1551782450-a2132b4ba21d?w=500&q=75',disc:'Free',orig:'$5.00',price:'$0.00',desc:'Get a complimentary miso soup with any sushi combo order. Valid every day.',tc:['Valid any day during opening hours','Must order a combo set','One per table, not per person'],dealKey:'NORI'},
-  {id:4,title:'Brunch for 2 – 25% Off',restaurant:'Café Rawda',district:'Achrafieh',cat:'brunch',time:'lunch',img:'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=500&q=75',disc:'25%',orig:'$40.00',price:'$30.00',desc:'Weekend brunch for two at 25% off the total food bill.',tc:['Valid Sat–Sun 10:00–14:00','Minimum 2 guests','Food items only','Advance booking required'],dealKey:'RAWDA'},
-  {id:5,title:'Mixed Grill Platter 40% Off',restaurant:'The Grill House',district:'Dbayeh',cat:'grill',time:'dinner',img:'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=500&q=75',disc:'40%',orig:'$55.00',price:'$33.00',desc:'Our legendary mixed grill platter — beef, chicken, lamb & kafta — at 40% off.',tc:['Valid daily for dinner','Serves 2–3 people','Cannot split portions','Subject to availability'],dealKey:'GRILL'},
-  {id:6,title:'Free Mezze Starter',restaurant:'Meze & More',district:'Jounieh',cat:'lebanese',time:'dinner',img:'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=500&q=75',disc:'Free',orig:'$12.00',price:'$0.00',desc:'Order any 2 mains and get our mezze platter starter completely free.',tc:['Valid all week','Min. 2 main courses','Mezze = house selection','No combination with other deals'],dealKey:'MEZE'},
-  {id:7,title:'Pizza + Drink Combo $14',restaurant:'Napoli Express',district:'Mar Mikhael',cat:'pizza',time:'lunch',img:'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=500&q=75',disc:'$8 off',orig:'$22.00',price:'$14.00',desc:'Any 30cm pizza + your choice of soft drink or fresh juice. Best value in Beirut.',tc:['Valid Mon–Sat 12:00–22:00','Takeaway & dine-in','One combo per person'],dealKey:'NAPO'},
-  {id:8,title:'Rooftop Dinner 20% Off',restaurant:'Skyline Lounge',district:'Achrafieh',cat:'lebanese',time:'dinner',img:'https://images.unsplash.com/photo-1563245372-f21724e3856d?w=500&q=75',disc:'20%',orig:'$60.00',price:'$48.00',desc:'Premium rooftop dinner with live acoustic music, at 20% off for TableDeal members.',tc:['Valid Thu–Sat from 7:00 PM','Reservation required','Smart casual dress code','Weather permitting'],dealKey:'SKY'},
-];
+let DEALS = [];
 
 function renderDeals(){
   const q=(document.getElementById('deal-search')?.value||'').toLowerCase();
@@ -2095,6 +2085,65 @@ function liveCode(dealKey){
   for(let i=0;i<seed.length;i++){h=((h<<5)+h)^seed.charCodeAt(i);h>>>=0}
   const b36=h.toString(36).toUpperCase().padEnd(6,'0').slice(0,6);
   return `TD-${dealKey}-${b36}`;
+}
+   async function loadCustomerDeals(){
+  const { data: offers, error: offersError } = await supabaseClient
+    .from('offers')
+    .select('*')
+    .eq('status', 'active')
+    .order('created_at', { ascending: false });
+
+  if(offersError){
+    console.error('Error loading offers:', offersError);
+    toast('Could not load deals', 'err');
+    return;
+  }
+
+  if(!offers || !offers.length){
+    DEALS = [];
+    renderDeals();
+    return;
+  }
+
+  const restaurantIds = [...new Set(offers.map(o => o.restaurant_id).filter(Boolean))];
+
+  const { data: restaurants, error: restaurantsError } = await supabaseClient
+    .from('restaurants')
+    .select('id, name, location')
+    .in('id', restaurantIds);
+
+  if(restaurantsError){
+    console.error('Error loading restaurants:', restaurantsError);
+    toast('Could not load restaurant details', 'err');
+    return;
+  }
+
+  const restaurantMap = {};
+  (restaurants || []).forEach(r => {
+    restaurantMap[r.id] = r;
+  });
+
+  DEALS = offers.map(o => {
+    const restaurant = restaurantMap[o.restaurant_id] || {};
+
+    return {
+      id: o.id,
+      title: o.title || 'Untitled Offer',
+      restaurant: restaurant.name || 'Restaurant',
+      district: restaurant.location || 'Lebanon',
+      cat: o.category || 'other',
+      time: o.start_time ? 'lunch' : 'dinner',
+      img: 'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=500&q=75',
+      disc: o.discount_value || 'Deal',
+      orig: o.original_price || '-',
+      price: o.discount_value || '-',
+      desc: o.short_desc || o.full_desc || 'Special offer for TableDeal members.',
+      tc: ['Valid for a limited time', 'Subject to restaurant terms'],
+      dealKey: String(o.id).slice(0, 6).toUpperCase()
+    };
+  });
+
+  renderDeals();
 }
 
 function secsLeft(){
