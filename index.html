@@ -1159,13 +1159,19 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
         <div style="display:grid;gap:18px">
           <div class="panel">
             <div class="panel-head">Offer Details</div>
-            <div class="form-group"><label>Offer Title</label><input class="input-field" placeholder="e.g. 30% Off the Entire Menu"/></div>
-            <div class="form-group"><label>Short Description (shown on card)</label><input class="input-field" placeholder="e.g. Valid at lunch, Mon–Fri"/></div>
-            <div class="form-group"><label>Full Description</label><textarea class="input-field" rows="3" placeholder="Describe the full offer for the deal page…" style="resize:vertical"></textarea></div>
+            <div class="form-group"><label>Offer Title</label><input class="input-field" id="offer-title" placeholder="e.g. 30% Off the Entire Menu"/></div>
+            <div class="form-group"><label>Short Description (shown on card)</label><input class="input-field" id="offer-short-desc" placeholder="e.g. Valid at lunch, Mon–Fri"/></div>
+            <div class="form-group"><label>Full Description</label><textarea class="input-field" id="offer-full-desc" rows="3" placeholder="Describe the full offer for the deal page…" style="resize:vertical"></textarea></div>
             <div class="three-col">
-              <div class="form-group"><label>Discount Type</label><select class="input-field"><option>Percentage (%)</option><option>Fixed Amount ($)</option><option>Buy X Get Y</option><option>Free Item</option><option>Combo Deal</option></select></div>
-              <div class="form-group"><label>Discount Value</label><input class="input-field" placeholder="e.g. 30"/></div>
-              <div class="form-group"><label>Original Price ($)</label><input class="input-field" placeholder="e.g. 25.00"/></div>
+              <div class="form-group"><label>Discount Type</label><select class="input-field" id="offer-discount-type">
+           <option value="percentage">Percentage (%)</option>
+            <option value="fixed">Fixed Amount ($)</option>
+            <option value="buyxgety">Buy X Get Y</option>
+            <option value="free_item">Free Item</option>
+            <option value="combo">Combo Deal</option>
+         </select></div>
+              <div class="form-group"><label>Discount Value</label><input class="input-field" id="offer-discount-value" placeholder="e.g. 30"/></div>
+              <div class="form-group"><label>Original Price ($)</label><input class="input-field" id="offer-original-price" placeholder="e.g. 25.00"/></div>
             </div>
             <div class="form-group"><label>Category Tags</label>
               <div class="chip-group">
@@ -1183,8 +1189,8 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
           <div class="panel">
             <div class="panel-head">Validity & Schedule</div>
             <div class="two-col">
-              <div class="form-group"><label>Valid From</label><input class="input-field" type="date"/></div>
-              <div class="form-group"><label>Valid Until</label><input class="input-field" type="date"/></div>
+              <div class="form-group"><label>Valid From</label><input class="input-field" id="offer-valid-from" type="date"/></div>
+              <div class="form-group"><label>Valid Until</label><input class="input-field" id="offer-valid-until" type="date"/></div>
             </div>
             <div class="form-group"><label>Valid Days</label>
               <div class="chip-group">
@@ -1198,8 +1204,8 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
               </div>
             </div>
             <div class="two-col">
-              <div class="form-group"><label>From Time</label><input class="input-field" type="time" value="12:00"/></div>
-              <div class="form-group"><label>Until Time</label><input class="input-field" type="time" value="16:00"/></div>
+              <div class="form-group"><label>From Time</label><input class="input-field" id="offer-start-time" type="time" value="12:00"/></div>
+              <div class="form-group"><label>Until Time</label><input class="input-field" id="offer-end-time" type="time" value="16:00"/></div>
             </div>
             <div class="two-col">
               <div class="form-group"><label>Max Redemptions / Day</label><input class="input-field" type="number" placeholder="Unlimited"/></div>
@@ -1215,8 +1221,8 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
             <button class="btn-ghost" onclick="addTC()">+ Add Condition</button>
           </div>
           <div style="display:flex;gap:10px;justify-content:flex-end">
-            <button class="btn-ghost" onclick="toast('Saved as draft!','ok')">Save Draft</button>
-            <button class="btn-gold" style="padding:11px 28px" onclick="toast('Offer published! 🎉','ok')">Publish Offer →</button>
+            <button class="btn-ghost" onclick="saveOffer('draft')">Save Draft</button>
+            <button class="btn-gold" style="padding:11px 28px" onclick="saveOffer('active')">Publish Offer →</button>
           </div>
         </div>
       </div>
@@ -1807,6 +1813,7 @@ async function initRestaurant(){
   loadCurrentRestaurant();
   buildHours();
   await loadRestaurantHours();
+  await loadRestaurantOffers();
 }
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const DEF_HRS=[['12:00','23:00'],['12:00','23:00'],['12:00','23:00'],['12:00','23:00'],['12:00','00:00'],['11:00','00:00'],['11:00','22:00']];
@@ -1853,6 +1860,105 @@ let activeFilter='all';
 function initCustomer(){
   loadCurrentUserProfile();
   renderDeals();
+}
+   async function loadRestaurantOffers(){
+  const restaurantId = await getCurrentRestaurantId();
+  if(!restaurantId) return;
+
+  const { data, error } = await supabaseClient
+    .from('offers')
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: false });
+
+  if(error){
+    console.error('Error loading offers:', error);
+    return;
+  }
+
+  const tbody = document.querySelector('#pane-r-offers tbody');
+  if(!tbody) return;
+
+  if(!data || !data.length){
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align:center;color:var(--text-muted)">No offers yet</td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = data.map(offer => `
+    <tr>
+      <td>
+        <strong style="color:var(--text)">${offer.title}</strong><br/>
+        <span style="font-size:.74rem;color:var(--text-dim)">${offer.short_desc || ''}</span>
+      </td>
+      <td>${offer.discount_value || '-'}</td>
+      <td>${offer.valid_from || '-'} → ${offer.valid_until || '-'}</td>
+      <td>-</td>
+      <td>
+        ${
+          offer.status === 'active'
+            ? '<span class="badge-green">● Active</span>'
+            : offer.status === 'draft'
+            ? '<span class="badge-yellow">● Draft</span>'
+            : '<span class="badge-red">● Paused</span>'
+        }
+      </td>
+      <td><button class="btn-ghost">View</button></td>
+    </tr>
+  `).join('');
+}
+   async function saveOffer(status = 'draft'){
+  const restaurantId = await getCurrentRestaurantId();
+
+  if(!restaurantId){
+    toast('Restaurant not found', 'err');
+    return;
+  }
+
+  const title = document.getElementById('offer-title')?.value?.trim() || '';
+  const shortDesc = document.getElementById('offer-short-desc')?.value?.trim() || '';
+  const fullDesc = document.getElementById('offer-full-desc')?.value?.trim() || '';
+  const discountType = document.getElementById('offer-discount-type')?.value || null;
+  const discountValue = document.getElementById('offer-discount-value')?.value?.trim() || null;
+  const originalPrice = document.getElementById('offer-original-price')?.value?.trim() || null;
+  const validFrom = document.getElementById('offer-valid-from')?.value || null;
+  const validUntil = document.getElementById('offer-valid-until')?.value || null;
+  const startTime = document.getElementById('offer-start-time')?.value || null;
+  const endTime = document.getElementById('offer-end-time')?.value || null;
+
+  if(!title){
+    toast('Offer title is required', 'err');
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from('offers')
+    .insert([{
+      restaurant_id: restaurantId,
+      title,
+      short_desc: shortDesc,
+      full_desc: fullDesc,
+      discount_type: discountType,
+      discount_value: discountValue,
+      original_price: originalPrice,
+      valid_from: validFrom,
+      valid_until: validUntil,
+      start_time: startTime,
+      end_time: endTime,
+      status
+    }]);
+
+  if(error){
+    console.error('Offer save error:', error);
+    toast(error.message || 'Could not save offer', 'err');
+    return;
+  }
+
+  toast(status === 'active' ? 'Offer published! 🎉' : 'Saved as draft!', 'ok');
+  loadRestaurantOffers();
 }
    async function loadCurrentUserProfile(){
   const { data: authData, error: authError } = await supabaseClient.auth.getUser();
