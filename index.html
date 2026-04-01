@@ -1230,7 +1230,7 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
             <div class="form-group"><label>Special Note</label><input class="input-field" placeholder="e.g. Kitchen closes 30 min before closing time"/></div>
           </div>
           <div style="display:flex;justify-content:flex-end;margin-top:12px">
-            <button class="btn-gold" onclick="toast('Opening hours saved ✅','ok')">Save Hours</button>
+            <button class="btn-gold" onclick="saveRestaurantHours()">Save Hours</button>
           </div>
         </div>
       </div>
@@ -1803,9 +1803,10 @@ function paneM(id, linkEl){
 }
 
 /* ─── RESTAURANT INIT ─── */
-function initRestaurant(){
+async function initRestaurant(){
   loadCurrentRestaurant();
   buildHours();
+  await loadRestaurantHours();
 }
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const DEF_HRS=[['12:00','23:00'],['12:00','23:00'],['12:00','23:00'],['12:00','23:00'],['12:00','00:00'],['11:00','00:00'],['11:00','22:00']];
@@ -2011,6 +2012,121 @@ function openDeal(id){
 
   const nameEl = document.getElementById('restaurant-display-name');
   if(nameEl) nameEl.textContent = restaurant.name || 'Restaurant';
+}
+   async function getCurrentRestaurantId(){
+  const { data: authData, error: authError } = await supabaseClient.auth.getUser();
+
+  if (authError || !authData?.user) {
+    console.error('No authenticated user found', authError);
+    return null;
+  }
+
+  const { data: restaurant, error } = await supabaseClient
+    .from('restaurants')
+    .select('id')
+    .eq('owner_id', authData.user.id)
+    .single();
+
+  if (error) {
+    console.error('Could not load restaurant id:', error);
+    return null;
+  }
+
+  return restaurant.id;
+}
+   async function saveRestaurantHours(){
+  const restaurantId = await getCurrentRestaurantId();
+
+  if(!restaurantId){
+    toast('Restaurant not found', 'err');
+    return;
+  }
+
+  const rows = [...document.querySelectorAll('#hrs-grid .hrs-row')];
+  const payload = rows.map((row, i) => {
+    const isOpen = row.querySelector('input[type="checkbox"]')?.checked || false;
+    const times = row.querySelectorAll('input[type="time"]');
+    const openTime = times[0]?.value || null;
+    const closeTime = times[1]?.value || null;
+
+    return {
+      restaurant_id: restaurantId,
+      day: DAYS[i],
+      open_time: isOpen ? openTime : null,
+      close_time: isOpen ? closeTime : null,
+      is_open: isOpen
+    };
+  });
+
+  const { error: deleteError } = await supabaseClient
+    .from('restaurant_hours')
+    .delete()
+    .eq('restaurant_id', restaurantId);
+
+  if(deleteError){
+    console.error(deleteError);
+    toast('Could not clear old hours', 'err');
+    return;
+  }
+
+  const { error: insertError } = await supabaseClient
+    .from('restaurant_hours')
+    .insert(payload);
+
+  if(insertError){
+    console.error(insertError);
+    toast(insertError.message || 'Could not save hours', 'err');
+    return;
+  }
+
+  toast('Opening hours saved ✅', 'ok');
+}
+   async function loadRestaurantHours(){
+  const restaurantId = await getCurrentRestaurantId();
+
+  if(!restaurantId) return;
+
+  const { data, error } = await supabaseClient
+    .from('restaurant_hours')
+    .select('*')
+    .eq('restaurant_id', restaurantId);
+
+  if(error){
+    console.error('Error loading restaurant hours:', error);
+    return;
+  }
+
+  if(!data || !data.length) return;
+
+  const byDay = {};
+  data.forEach(row => {
+    byDay[row.day] = row;
+  });
+
+  const rows = [...document.querySelectorAll('#hrs-grid .hrs-row')];
+
+  rows.forEach((row, i) => {
+    const dayName = DAYS[i];
+    const saved = byDay[dayName];
+    if(!saved) return;
+
+    const checkbox = row.querySelector('input[type="checkbox"]');
+    const times = row.querySelectorAll('input[type="time"]');
+
+    if(checkbox){
+      checkbox.checked = !!saved.is_open;
+    }
+
+    if(times[0] && saved.open_time){
+      times[0].value = String(saved.open_time).slice(0,5);
+    }
+
+    if(times[1] && saved.close_time){
+      times[1].value = String(saved.close_time).slice(0,5);
+    }
+
+    toggleDay(checkbox);
+  });
 }
 function closeModal(){
   document.getElementById('deal-overlay').classList.remove('open');
