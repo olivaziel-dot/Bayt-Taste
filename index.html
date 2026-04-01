@@ -933,12 +933,31 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
           </div>
           <div class="form-group">
             <div style="font-size:.76rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:9px">Choose Plan</div>
-            <div class="plan-picker">
-              <div class="plan-opt sel" onclick="pickPlan(this)"><div class="plan-opt-name">Explorer</div><div class="plan-opt-price">$9/mo</div><div class="plan-opt-note">5 deals/month</div></div>
-              <div class="plan-opt" onclick="pickPlan(this)"><div class="plan-opt-name">Gourmet ⭐</div><div class="plan-opt-price">$19/mo</div><div class="plan-opt-note">Unlimited deals</div></div>
-              <div class="plan-opt" onclick="pickPlan(this)"><div class="plan-opt-name">Annual Pro</div><div class="plan-opt-price">$149/yr</div><div class="plan-opt-note">Best savings</div></div>
-              <div class="plan-opt" onclick="pickPlan(this)"><div class="plan-opt-name">Free Trial</div><div class="plan-opt-price">$0</div><div class="plan-opt-note">3 deals, 14 days</div></div>
-            </div>
+           <div class="plan-picker" id="customer-plan-picker">
+  <div class="plan-opt sel" data-plan="explorer" onclick="pickPlan(this)">
+    <div class="plan-opt-name">Explorer</div>
+    <div class="plan-opt-price">$9/mo</div>
+    <div class="plan-opt-note">5 deals/month</div>
+  </div>
+
+  <div class="plan-opt" data-plan="gourmet" onclick="pickPlan(this)">
+    <div class="plan-opt-name">Gourmet ⭐</div>
+    <div class="plan-opt-price">$19/mo</div>
+    <div class="plan-opt-note">Unlimited deals</div>
+  </div>
+
+  <div class="plan-opt" data-plan="annual_pro" onclick="pickPlan(this)">
+    <div class="plan-opt-name">Annual Pro</div>
+    <div class="plan-opt-price">$149/yr</div>
+    <div class="plan-opt-note">Best savings</div>
+  </div>
+
+  <div class="plan-opt" data-plan="free_trial" onclick="pickPlan(this)">
+    <div class="plan-opt-name">Free Trial</div>
+    <div class="plan-opt-price">$0</div>
+    <div class="plan-opt-note">3 deals, 14 days</div>
+  </div>
+</div>
           </div>
           <label style="display:flex;align-items:flex-start;gap:9px;font-size:.8rem;color:var(--text-muted);margin-bottom:18px;cursor:pointer"><input type="checkbox" style="margin-top:2px;accent-color:var(--gold)"/> I agree to the <a style="color:var(--gold)">Terms</a> and <a style="color:var(--gold)">Privacy Policy</a></label>
           <button class="btn-gold" style="width:100%;padding:13px" onclick="doRegister('customer')">Create My Account →</button>
@@ -1661,7 +1680,7 @@ async function doRegister(type){
   let email = '';
   let password = '';
   let name = '';
-
+  let planCode = 'free_trial';
   let restaurantName = '';
   let restaurantLocation = '';
 
@@ -1671,6 +1690,8 @@ async function doRegister(type){
     email = document.querySelector('#reg-c input[type="email"]')?.value?.trim() || '';
     password = document.getElementById('rp-c')?.value?.trim() || '';
     name = `${firstName} ${lastName}`.trim();
+     const selectedPlanEl = document.querySelector('#customer-plan-picker .plan-opt.sel');
+planCode = selectedPlanEl?.dataset?.plan || 'free_trial';
   } else {
     const firstName = document.querySelector('#reg-r input[placeholder="Rania"]')?.value?.trim() || '';
     const lastName = document.querySelector('#reg-r input[placeholder="Salameh"]')?.value?.trim() || '';
@@ -1710,11 +1731,12 @@ async function doRegister(type){
   const { error: profileError } = await supabaseClient
     .from('profiles')
     .insert([{
-      id: user.id,
-      email,
-      name,
-      role: type
-    }]);
+  id: user.id,
+  email,
+  name,
+  role: type,
+  plan_code: type === 'customer' ? planCode : 'free_trial'
+}]);
 
   if(profileError){
     toast(profileError.message, 'err');
@@ -1847,7 +1869,16 @@ function initCustomer(){
   if(userAvatarEl) userAvatarEl.textContent = firstLetter;
 
   // solange wir noch keinen echten Plan speichern:
-  if(userPlanEl) userPlanEl.textContent = 'Member';
+  const planLabels = {
+  explorer: 'Explorer',
+  gourmet: 'Gourmet',
+  annual_pro: 'Annual Pro',
+  free_trial: 'Free Trial'
+};
+
+if(userPlanEl) {
+  userPlanEl.textContent = planLabels[profile.plan_code] || 'Member';
+}
 }
 function setFilter(el,f){
   document.querySelectorAll('.f-chip').forEach(c=>c.classList.remove('on'));
