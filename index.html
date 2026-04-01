@@ -1916,11 +1916,84 @@ async function initCustomer(){
             : '<span class="badge-red">● Paused</span>'
         }
       </td>
-      <td><button class="btn-ghost">View</button></td>
+      <td>
+        <button class="btn-ghost" onclick="editOffer('${offer.id}')">Edit</button>
+        ${
+          offer.status === 'active'
+            ? `<button class="btn-danger" onclick="changeOfferStatus('${offer.id}','paused')">Pause</button>`
+            : `<button class="btn-ghost" onclick="changeOfferStatus('${offer.id}','active')">Activate</button>`
+        }
+      </td>
     </tr>
   `).join('');
 }
-   async function saveOffer(status = 'draft'){
+   async function editOffer(offerId){
+  const { data: offer, error } = await supabaseClient
+    .from('offers')
+    .select('*')
+    .eq('id', offerId)
+    .single();
+
+  if(error){
+    console.error('Error loading offer for edit:', error);
+    toast('Could not load offer', 'err');
+    return;
+  }
+
+  currentEditingOfferId = offer.id;
+
+  document.getElementById('offer-title').value = offer.title || '';
+  document.getElementById('offer-short-desc').value = offer.short_desc || '';
+  document.getElementById('offer-full-desc').value = offer.full_desc || '';
+  document.getElementById('offer-discount-type').value = offer.discount_type || 'percentage';
+  document.getElementById('offer-discount-value').value = offer.discount_value || '';
+  document.getElementById('offer-original-price').value = offer.original_price || '';
+  document.getElementById('offer-valid-from').value = offer.valid_from || '';
+  document.getElementById('offer-valid-until').value = offer.valid_until || '';
+  document.getElementById('offer-start-time').value = offer.start_time ? String(offer.start_time).slice(0,5) : '';
+  document.getElementById('offer-end-time').value = offer.end_time ? String(offer.end_time).slice(0,5) : '';
+
+  document.querySelectorAll('#offer-category-group .chip').forEach(chip => {
+    chip.classList.remove('on');
+    if(chip.dataset.category === offer.category){
+      chip.classList.add('on');
+    }
+  });
+
+  const { data: terms, error: termsError } = await supabaseClient
+    .from('offer_terms')
+    .select('*')
+    .eq('offer_id', offer.id)
+    .order('sort_order', { ascending: true });
+
+  if(termsError){
+    console.error('Error loading offer terms for edit:', termsError);
+  }
+
+  const tcList = document.getElementById('tc-list');
+  if(tcList){
+    tcList.innerHTML = '';
+
+    if(terms && terms.length){
+      terms.forEach(term => {
+        const d = document.createElement('div');
+        d.className = 'form-group';
+        d.style.cssText = 'display:flex;gap:8px;align-items:center';
+        d.innerHTML = `
+          <input class="input-field" value="${term.term_text.replace(/"/g, '&quot;')}" />
+          <button style="background:none;border:none;color:var(--red);font-size:1.3rem;cursor:pointer;flex-shrink:0" onclick="this.parentElement.remove()">✕</button>
+        `;
+        tcList.appendChild(d);
+      });
+    } else {
+      addTC();
+    }
+  }
+
+  pane('r-add', null);
+  toast('Offer loaded for editing', 'ok');
+}
+  async function saveOffer(status = 'draft'){
   const restaurantId = await getCurrentRestaurantId();
 
   if(!restaurantId){
@@ -1955,7 +2028,7 @@ async function initCustomer(){
     return;
   }
 
-  console.log('OFFER PAYLOAD', {
+  const offerPayload = {
     restaurant_id: restaurantId,
     title,
     short_desc: shortDesc,
@@ -1968,29 +2041,32 @@ async function initCustomer(){
     valid_until: validUntil,
     start_time: startTime,
     end_time: endTime,
-    status,
-    terms
-  });
+    status
+  };
 
-  const { data: insertedOffer, error: offerError } = await supabaseClient
-    .from('offers')
-    .insert([{
-      restaurant_id: restaurantId,
-      title,
-      short_desc: shortDesc,
-      full_desc: fullDesc,
-      discount_type: discountType,
-      discount_value: discountValue,
-      original_price: originalPrice,
-      category,
-      valid_from: validFrom,
-      valid_until: validUntil,
-      start_time: startTime,
-      end_time: endTime,
-      status
-    }])
-    .select()
-    .single();
+  let savedOffer = null;
+  let offerError = null;
+
+  if(currentEditingOfferId){
+    const { data, error } = await supabaseClient
+      .from('offers')
+      .update(offerPayload)
+      .eq('id', currentEditingOfferId)
+      .select()
+      .single();
+
+    savedOffer = data;
+    offerError = error;
+  } else {
+    const { data, error } = await supabaseClient
+      .from('offers')
+      .insert([offerPayload])
+      .select()
+      .single();
+
+    savedOffer = data;
+    offerError = error;
+  }
 
   if(offerError){
     console.error('Offer save error FULL:', JSON.stringify(offerError, null, 2));
@@ -1999,26 +2075,62 @@ async function initCustomer(){
     return;
   }
 
-  if(insertedOffer?.id && terms.length){
-    const termPayload = terms.map(term => ({
-      offer_id: insertedOffer.id,
-      term_text: term.term_text,
-      sort_order: term.sort_order
-    }));
-
-    const { error: termsError } = await supabaseClient
+  if(savedOffer?.id){
+    const { error: deleteTermsError } = await supabaseClient
       .from('offer_terms')
-      .insert(termPayload);
+      .delete()
+      .eq('offer_id', savedOffer.id);
 
-    if(termsError){
-      console.error('Offer terms save error FULL:', JSON.stringify(termsError, null, 2));
-      console.error('Offer terms save error RAW:', termsError);
-      toast(termsError.message || 'Offer saved, but terms could not be saved', 'err');
+    if(deleteTermsError){
+      console.error('Could not clear old terms:', deleteTermsError);
+      toast('Offer saved, but terms cleanup failed', 'err');
       return;
+    }
+
+    if(terms.length){
+      const termPayload = terms.map(term => ({
+        offer_id: savedOffer.id,
+        term_text: term.term_text,
+        sort_order: term.sort_order
+      }));
+
+      const { error: termsError } = await supabaseClient
+        .from('offer_terms')
+        .insert(termPayload);
+
+      if(termsError){
+        console.error('Offer terms save error FULL:', JSON.stringify(termsError, null, 2));
+        console.error('Offer terms save error RAW:', termsError);
+        toast(termsError.message || 'Offer saved, but terms could not be saved', 'err');
+        return;
+      }
     }
   }
 
-  toast(status === 'active' ? 'Offer published! 🎉' : 'Saved as draft!', 'ok');
+  currentEditingOfferId = null;
+
+  toast(
+    status === 'active'
+      ? (savedOffer ? 'Offer saved! 🎉' : 'Offer published! 🎉')
+      : 'Saved as draft!',
+    'ok'
+  );
+
+  loadRestaurantOffers();
+}
+   async function changeOfferStatus(offerId, newStatus){
+  const { error } = await supabaseClient
+    .from('offers')
+    .update({ status: newStatus })
+    .eq('id', offerId);
+
+  if(error){
+    console.error('Error changing offer status:', error);
+    toast('Could not update status', 'err');
+    return;
+  }
+
+  toast(`Offer ${newStatus === 'active' ? 'activated' : 'paused'}!`, 'ok');
   loadRestaurantOffers();
 }
    async function loadCurrentUserProfile(){
