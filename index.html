@@ -1070,6 +1070,30 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
         </div>
         <div class="coupon-used-warn">Show this code to the restaurant staff. They will verify it's valid in real time.</div>
       </div>
+       <div style="margin-top:18px;margin-bottom:18px">
+  <h4 style="font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:10px">Book a Table</h4>
+  <div class="two-col">
+    <div class="form-group">
+      <label>Date</label>
+      <input class="input-field" id="res-date" type="date"/>
+    </div>
+    <div class="form-group">
+      <label>Time</label>
+      <input class="input-field" id="res-time" type="time"/>
+    </div>
+  </div>
+  <div class="two-col">
+    <div class="form-group">
+      <label>Party Size</label>
+      <input class="input-field" id="res-party-size" type="number" min="1" value="2"/>
+    </div>
+    <div class="form-group">
+      <label>Note (optional)</label>
+      <input class="input-field" id="res-note" type="text" placeholder="Window seat, birthday, etc."/>
+    </div>
+  </div>
+  <button class="btn-outline" style="width:100%" onclick="bookReservation()">Reserve Table</button>
+</div>
       <button class="btn-gold" style="width:100%;padding:13px">📍 Get Directions</button>
     </div>
   </div>
@@ -1268,7 +1292,9 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
       </div>
       <!-- RESERVATIONS -->
       <div class="pane" id="pane-r-reservations">
-        <div class="rdash-header"><h1>Reservations</h1><p>Manage incoming table requests from TableDeal members.</p></div>
+  <div class="rdash-header"><h1>Reservations</h1><p>Manage incoming table requests from TableDeal members.</p></div>
+  <div class="real-reservation-list" style="display:flex;flex-direction:column;gap:12px"></div>
+</div>
         <div style="display:flex;flex-direction:column;gap:12px">
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
             <div><div style="font-size:.95rem;font-weight:600;color:var(--text);margin-bottom:3px">Karim Hassan — Table for 2</div><div style="font-size:.8rem;color:var(--text-muted)">📅 Today, 8:00 PM · Requested via TableDeal</div></div>
@@ -1828,6 +1854,7 @@ async function initRestaurant(){
   buildHours();
   await loadRestaurantHours();
   await loadRestaurantOffers();
+   await loadRestaurantReservations();
 }
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const DEF_HRS=[['12:00','23:00'],['12:00','23:00'],['12:00','23:00'],['12:00','23:00'],['12:00','00:00'],['11:00','00:00'],['11:00','22:00']];
@@ -1930,6 +1957,21 @@ async function initCustomer(){
       </td>
     </tr>
   `).join('');
+}
+   async function updateReservationStatus(reservationId, newStatus){
+  const { error } = await supabaseClient
+    .from('reservations')
+    .update({ status: newStatus })
+    .eq('id', reservationId);
+
+  if(error){
+    console.error('Reservation status update error:', error);
+    toast('Could not update reservation', 'err');
+    return;
+  }
+
+  toast(`Reservation ${newStatus}!`, 'ok');
+  loadRestaurantReservations();
 }
    async function editOffer(offerId){
   const { data: offer, error } = await supabaseClient
@@ -2577,6 +2619,99 @@ function banUserRow(btn,name){
   row.querySelector('td:nth-child(6)').innerHTML='<span class="badge-red">Banned</span>';
   btn.parentElement.innerHTML=`<button class="unban-btn" onclick="toast('Unbanned','ok')">Unban</button>`;
   toast(`${name} has been banned 🚫`,'err');
+}
+   async function bookReservation(){
+  if(!_modalDeal){
+    toast('No deal selected', 'err');
+    return;
+  }
+
+  const { data: authData, error: authError } = await supabaseClient.auth.getUser();
+
+  if(authError || !authData?.user){
+    toast('Please sign in first', 'err');
+    return;
+  }
+
+  const reservedDate = document.getElementById('res-date')?.value || '';
+  const reservedTime = document.getElementById('res-time')?.value || '';
+  const partySize = parseInt(document.getElementById('res-party-size')?.value || '0', 10);
+  const note = document.getElementById('res-note')?.value?.trim() || '';
+
+  if(!reservedDate || !reservedTime || !partySize){
+    toast('Please fill date, time, and party size', 'err');
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from('reservations')
+    .insert([{
+      customer_id: authData.user.id,
+      restaurant_id: _modalDeal.restaurant_id,
+      offer_id: _modalDeal.id,
+      reserved_date: reservedDate,
+      reserved_time: reservedTime,
+      party_size: partySize,
+      note,
+      status: 'pending'
+    }]);
+
+  if(error){
+    console.error('Reservation save error:', error);
+    toast(error.message || 'Could not create reservation', 'err');
+    return;
+  }
+
+  toast('Reservation request sent! ✅', 'ok');
+}
+   async function loadRestaurantReservations(){
+  const restaurantId = await getCurrentRestaurantId();
+  if(!restaurantId) return;
+
+  const { data, error } = await supabaseClient
+    .from('reservations')
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: false });
+
+  if(error){
+    console.error('Error loading reservations:', error);
+    return;
+  }
+
+  const container = document.querySelector('#pane-r-reservations');
+  if(!container) return;
+
+  const listWrap = container.querySelector('.real-reservation-list');
+  if(!listWrap) return;
+
+  if(!data || !data.length){
+    listWrap.innerHTML = `<div style="color:var(--text-muted)">No reservations yet</div>`;
+    return;
+  }
+
+  listWrap.innerHTML = data.map(r => `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:.95rem;font-weight:600;color:var(--text);margin-bottom:3px">Reservation for ${r.party_size}</div>
+        <div style="font-size:.8rem;color:var(--text-muted)">
+          📅 ${r.reserved_date} · ${r.reserved_time}${r.note ? ' · ' + r.note : ''}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${
+          r.status === 'pending'
+            ? `<span class="badge-yellow">Pending</span>
+               <button class="btn-gold" style="padding:7px 16px;font-size:.8rem" onclick="updateReservationStatus('${r.id}','confirmed')">Confirm</button>
+               <button class="btn-danger" onclick="updateReservationStatus('${r.id}','cancelled')">Cancel</button>`
+            : r.status === 'confirmed'
+            ? `<span class="badge-green">Confirmed</span>
+               <button class="btn-danger" onclick="updateReservationStatus('${r.id}','cancelled')">Cancel</button>`
+            : `<span class="badge-red">Cancelled</span>`
+        }
+      </div>
+    </div>
+  `).join('');
 }
 
 /* ─── TOAST ─── */
