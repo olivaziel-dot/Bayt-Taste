@@ -3194,7 +3194,7 @@ async function initManager(){
   }
 
   body.innerHTML = data.map(u => `
-    <tr>
+    <tr class="${u.is_banned ? 'user-row-banned' : ''}">
       <td><strong style="color:var(--text)">${u.name || '-'}</strong></td>
       <td>${u.email || '-'}</td>
       <td>
@@ -3207,9 +3207,21 @@ async function initManager(){
         </span>
       </td>
       <td>${u.created_at ? new Date(u.created_at).toLocaleDateString() : '-'}</td>
-      <td>-</td>
-      <td><span class="badge-green">Active</span></td>
-      <td><button class="btn-ghost" onclick="managerViewUser('${u.id}')">View</button></td>
+      <td>${u.role || '-'}</td>
+      <td>
+        ${u.is_banned
+          ? '<span class="badge-red">Banned</span>'
+          : '<span class="badge-green">Active</span>'
+        }
+      </td>
+      <td>
+        <button class="btn-ghost" onclick="managerViewUser('${u.id}')">View</button>
+        ${
+          u.is_banned
+            ? `<button class="unban-btn" onclick="managerToggleUserBan('${u.id}', false)">Unban</button>`
+            : `<button class="ban-btn" onclick="managerToggleUserBan('${u.id}', true)">Ban</button>`
+        }
+      </td>
     </tr>
   `).join('');
 }
@@ -3276,13 +3288,42 @@ async function initManager(){
         <td><strong style="color:var(--text)">${r.name || '-'}</strong></td>
         <td>${owner.name || owner.email || '-'}</td>
         <td>${r.location || '-'}</td>
-        <td><span class="badge-blue">Partner</span></td>
+        <td>
+          ${
+            r.status === 'active'
+              ? '<span class="badge-green">Active</span>'
+              : r.status === 'pending'
+              ? '<span class="badge-yellow">Pending</span>'
+              : '<span class="badge-red">Suspended</span>'
+          }
+        </td>
         <td>${offerCount}</td>
-        <td><span class="badge-green">Active</span></td>
-        <td><button class="btn-ghost">View</button></td>
+        <td>
+          ${
+            r.status === 'suspended'
+              ? `<button class="unban-btn" onclick="managerToggleRestaurantStatus('${r.id}','active')">Activate</button>`
+              : `<button class="ban-btn" onclick="managerToggleRestaurantStatus('${r.id}','suspended')">Suspend</button>`
+          }
+        </td>
       </tr>
     `;
   }).join('');
+}
+   async function managerToggleRestaurantStatus(restaurantId, newStatus){
+  const { error } = await supabaseClient
+    .from('restaurants')
+    .update({ status: newStatus })
+    .eq('id', restaurantId);
+
+  if(error){
+    console.error('Error updating restaurant status:', error);
+    toast('Could not update restaurant status', 'err');
+    return;
+  }
+
+  toast(`Restaurant ${newStatus === 'active' ? 'activated' : 'suspended'}`, 'ok');
+  await loadManagerRestaurants();
+  await loadManagerStats();
 }
 function banUserRow(btn,name){
   const row=btn.closest('tr');
@@ -3335,6 +3376,21 @@ function banUserRow(btn,name){
 
   toast('Reservation request sent! ✅', 'ok');
       loadCustomerReservations();
+}
+   async function managerToggleUserBan(userId, shouldBan){
+  const { error } = await supabaseClient
+    .from('profiles')
+    .update({ is_banned: shouldBan })
+    .eq('id', userId);
+
+  if(error){
+    console.error('Error updating user ban status:', error);
+    toast('Could not update user status', 'err');
+    return;
+  }
+
+  toast(shouldBan ? 'User banned' : 'User unbanned', 'ok');
+  await loadManagerUsers();
 }
    async function managerViewUser(userId){
   const { data, error } = await supabaseClient
