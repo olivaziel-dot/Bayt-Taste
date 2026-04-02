@@ -1036,6 +1036,10 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
     <div class="deals-grid" id="deals-grid"></div>
   </div>
 </div>
+   <div class="deals-wrap" style="padding-top:0">
+  <div class="deals-heading">📅 My Reservations</div>
+  <div id="customer-reservations-list" style="display:flex;flex-direction:column;gap:12px"></div>
+</div>
 
 <!-- Deal Modal -->
 <div class="overlay" id="deal-overlay" onclick="if(event.target===this)closeModal()">
@@ -1888,6 +1892,81 @@ function toggleDay(inp){
   tr.style.pointerEvents=inp.checked?'auto':'none';
   if(st){st.textContent=inp.checked?'Open':'Closed';st.style.color=inp.checked?'var(--green)':'var(--text-dim)'}
 }
+   async function loadCustomerReservations(){
+  const { data: authData, error: authError } = await supabaseClient.auth.getUser();
+
+  if(authError || !authData?.user){
+    console.error('No authenticated customer found', authError);
+    return;
+  }
+
+  const { data: reservations, error: reservationsError } = await supabaseClient
+    .from('reservations')
+    .select('*')
+    .eq('customer_id', authData.user.id)
+    .order('created_at', { ascending: false });
+
+  if(reservationsError){
+    console.error('Error loading customer reservations:', reservationsError);
+    return;
+  }
+
+  const list = document.getElementById('customer-reservations-list');
+  if(!list) return;
+
+  if(!reservations || !reservations.length){
+    list.innerHTML = `
+      <div style="color:var(--text-muted);padding:10px 0">
+        No reservations yet
+      </div>
+    `;
+    return;
+  }
+
+  const restaurantIds = [...new Set(reservations.map(r => r.restaurant_id).filter(Boolean))];
+
+  const { data: restaurants, error: restaurantsError } = await supabaseClient
+    .from('restaurants')
+    .select('id, name, location')
+    .in('id', restaurantIds);
+
+  if(restaurantsError){
+    console.error('Error loading restaurants for reservations:', restaurantsError);
+    return;
+  }
+
+  const restaurantMap = {};
+  (restaurants || []).forEach(r => {
+    restaurantMap[r.id] = r;
+  });
+
+  list.innerHTML = reservations.map(r => {
+    const restaurant = restaurantMap[r.restaurant_id] || {};
+
+    return `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:.95rem;font-weight:600;color:var(--text);margin-bottom:3px">
+            ${restaurant.name || 'Restaurant'}
+          </div>
+          <div style="font-size:.8rem;color:var(--text-muted)">
+            📅 ${r.reserved_date} · ${r.reserved_time} · Table for ${r.party_size}
+            ${r.note ? ' · ' + r.note : ''}
+          </div>
+        </div>
+        <div>
+          ${
+            r.status === 'pending'
+              ? '<span class="badge-yellow">Pending</span>'
+              : r.status === 'confirmed'
+              ? '<span class="badge-green">Confirmed</span>'
+              : '<span class="badge-red">Cancelled</span>'
+          }
+        </div>
+      </div>
+    `;
+  }).join('');
+}
 function addTC(){
   const list=document.getElementById('tc-list');
   const d=document.createElement('div');
@@ -1901,6 +1980,7 @@ let activeFilter='all';
 async function initCustomer(){
   await loadCurrentUserProfile();
   await loadCustomerDeals();
+  await loadCustomerReservations();
 }
    async function loadRestaurantOffers(){
   const restaurantId = await getCurrentRestaurantId();
@@ -2663,6 +2743,7 @@ function banUserRow(btn,name){
   }
 
   toast('Reservation request sent! ✅', 'ok');
+      loadCustomerReservations();
 }
    async function loadRestaurantReservations(){
   const restaurantId = await getCurrentRestaurantId();
