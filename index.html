@@ -1561,26 +1561,37 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
       </div>
       <!-- BANNED ACCOUNTS -->
       <div class="pane" id="pane-m-banned">
-        <div class="rdash-header"><h1>Banned Accounts</h1><p>Accounts suspended for fraud, abuse, or coupon sharing.</p></div>
-        <div class="t-wrap" style="margin-bottom:16px">
-          <table class="tbl">
-            <thead><tr><th>Name</th><th>Email</th><th>Reason</th><th>Banned On</th><th>Actions</th></tr></thead>
-            <tbody>
-              <tr class="user-row-banned"><td>Ali Fake</td><td><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="bfded3d691d9ded4daffd2ded6d391dcd0d2">[email&#160;protected]</a></td><td style="color:var(--red)">Coupon code sharing (3 reports)</td><td>Jun 10, 2025</td><td><button class="unban-btn" onclick="toast('Account unbanned','ok')">Unban</button></td></tr>
-              <tr class="user-row-banned"><td>Anonymous2</td><td><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="c7a6a9a8a9f587aaa6aeabe9a4a8aa">[email&#160;protected]</a></td><td style="color:var(--red)">Fraudulent redemptions</td><td>Jun 18, 2025</td><td><button class="unban-btn" onclick="toast('Account unbanned','ok')">Unban</button></td></tr>
-              <tr class="user-row-banned"><td>Spam Account</td><td><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="92e1e2f3ffababd2fff3fbfebcf1fdff">[email&#160;protected]</a></td><td style="color:var(--red)">Multiple accounts detected</td><td>Jun 22, 2025</td><td><button class="unban-btn" onclick="toast('Account unbanned','ok')">Unban</button></td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="panel">
-          <div class="panel-head">Ban a User Manually</div>
-          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-            <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0"><label>User Email or ID</label><input class="input-field" placeholder="user@example.com"/></div>
-            <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0"><label>Reason</label><input class="input-field" placeholder="e.g. Coupon fraud"/></div>
-            <button class="btn-danger" style="padding:11px 20px;font-size:.86rem;border-radius:var(--r)" onclick="toast('User banned and notified','err')">Ban Account</button>
-          </div>
-        </div>
+  <div class="rdash-header"><h1>Banned Accounts</h1><p>Accounts suspended for fraud, abuse, or coupon sharing.</p></div>
+
+  <div class="t-wrap" style="margin-bottom:16px">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Plan</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="manager-banned-users-body"></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">Ban a User Manually</div>
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="flex:1;min-width:220px;margin-bottom:0">
+        <label>User Email</label>
+        <input class="input-field" id="manager-ban-email" placeholder="user@example.com"/>
       </div>
+
+      <button class="btn-danger" style="padding:11px 20px;font-size:.86rem;border-radius:var(--r)" onclick="managerBanUserByEmail()">
+        Ban Account
+      </button>
+    </div>
+  </div>
+</div>
       <!-- LIVE ACTIVITY -->
       <div class="pane" id="pane-m-activity">
         <div class="rdash-header"><h1>Live Activity</h1><p>Real-time events across the platform.</p></div>
@@ -2117,6 +2128,84 @@ function pane(id, linkEl){
     `;
   }).join('');
 }
+   async function loadManagerBannedUsers(){
+  const body = document.getElementById('manager-banned-users-body');
+  if(!body) return;
+
+  const { data, error } = await supabaseClient
+    .from('profiles')
+    .select('*')
+    .eq('is_banned', true)
+    .order('created_at', { ascending: false });
+
+  if(error){
+    console.error('Error loading banned users:', error);
+    body.innerHTML = `
+      <tr>
+        <td colspan="5" style="text-align:center;color:var(--red)">Could not load banned users</td>
+      </tr>
+    `;
+    return;
+  }
+
+  if(!data || !data.length){
+    body.innerHTML = `
+      <tr>
+        <td colspan="5" style="text-align:center;color:var(--text-muted)">No banned accounts</td>
+      </tr>
+    `;
+    return;
+  }
+
+  body.innerHTML = data.map(u => `
+    <tr class="user-row-banned">
+      <td>${u.name || '-'}</td>
+      <td>${u.email || '-'}</td>
+      <td>${u.role || '-'}</td>
+      <td>${u.plan_code || '-'}</td>
+      <td>
+        <button class="unban-btn" onclick="managerToggleUserBan('${u.id}', false)">Unban</button>
+      </td>
+    </tr>
+  `).join('');
+}
+   async function managerBanUserByEmail(){
+  const email = document.getElementById('manager-ban-email')?.value?.trim().toLowerCase();
+
+  if(!email){
+    toast('Please enter an email', 'err');
+    return;
+  }
+
+  const { data: profile, error: findError } = await supabaseClient
+    .from('profiles')
+    .select('*')
+    .ilike('email', email)
+    .single();
+
+  if(findError || !profile){
+    console.error('Error finding user by email:', findError);
+    toast('User not found', 'err');
+    return;
+  }
+
+  const { error: updateError } = await supabaseClient
+    .from('profiles')
+    .update({ is_banned: true })
+    .eq('id', profile.id);
+
+  if(updateError){
+    console.error('Error banning user:', updateError);
+    toast('Could not ban user', 'err');
+    return;
+  }
+
+  toast('User banned', 'ok');
+  document.getElementById('manager-ban-email').value = '';
+
+  await loadManagerUsers();
+  await loadManagerBannedUsers();
+}
    async function managerToggleOfferStatus(offerId, newStatus){
   const { data, error } = await supabaseClient
     .from('offers')
@@ -2139,12 +2228,38 @@ function pane(id, linkEl){
   await loadManagerStats();
 }
 /* ─── MANAGER PANE SWITCHER ─── */
-function paneM(id, linkEl){
-  document.querySelectorAll('#page-manager .pane').forEach(p=>p.classList.remove('on'));
-  const el=document.getElementById('pane-'+id);
+async function paneM(id, linkEl){
+  document.querySelectorAll('#page-manager .pane').forEach(p => p.classList.remove('on'));
+
+  const el = document.getElementById('pane-' + id);
   if(el) el.classList.add('on');
-  document.querySelectorAll('#page-manager .sb-link').forEach(l=>l.classList.remove('on'));
+
+  document.querySelectorAll('#page-manager .sb-link').forEach(l => l.classList.remove('on'));
   if(linkEl) linkEl.classList.add('on');
+
+  if(id === 'm-overview'){
+    await loadManagerStats();
+  }
+
+  if(id === 'm-users'){
+    await loadManagerUsers();
+  }
+
+  if(id === 'm-restaurants'){
+    await loadManagerRestaurants();
+  }
+
+  if(id === 'm-activity'){
+    await loadManagerActivity();
+  }
+
+  if(id === 'm-offers'){
+    await loadManagerOffers();
+  }
+
+  if(id === 'm-banned'){
+    await loadManagerBannedUsers();
+  }
 }
 
 /* ─── RESTAURANT INIT ─── */
@@ -3169,6 +3284,7 @@ async function initManager(){
   await loadManagerRestaurants();
    await loadManagerActivity();
    await loadManagerOffers();
+   await loadManagerBannedUsers();
 }
    async function loadManagerUsers(){
   const { data, error } = await supabaseClient
@@ -3377,7 +3493,7 @@ function banUserRow(btn,name){
   toast('Reservation request sent! ✅', 'ok');
       loadCustomerReservations();
 }
-   async function managerToggleUserBan(userId, shouldBan){
+  async function managerToggleUserBan(userId, shouldBan){
   const { error } = await supabaseClient
     .from('profiles')
     .update({ is_banned: shouldBan })
@@ -3390,7 +3506,9 @@ function banUserRow(btn,name){
   }
 
   toast(shouldBan ? 'User banned' : 'User unbanned', 'ok');
+
   await loadManagerUsers();
+  await loadManagerBannedUsers();
 }
    async function managerViewUser(userId){
   const { data, error } = await supabaseClient
