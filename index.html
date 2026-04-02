@@ -2038,6 +2038,11 @@ async function initCustomer(){
     </tr>
   `).join('');
 }
+   function generateRedemptionCode(offerId){
+  const raw = String(offerId).replace(/-/g, '').slice(0, 8).toUpperCase();
+  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `TD-${raw}-${random}`;
+}
    async function updateReservationStatus(reservationId, newStatus){
   const { error } = await supabaseClient
     .from('reservations')
@@ -2476,7 +2481,9 @@ async function openDeal(id){
 
   document.getElementById('deal-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
-  startCouponTimer(d.dealKey);
+  const codeEl = document.getElementById('m-code');
+if(codeEl) codeEl.textContent = generateRedemptionCode(d.id);
+startCouponTimer(d.dealKey);
 }
    async function loadCurrentRestaurant(){
   const { data: authData, error: authError } = await supabaseClient.auth.getUser();
@@ -2617,60 +2624,112 @@ function closeModal(){
   document.body.style.overflow='';
   clearInterval(_timerInterval);_timerInterval=null;
 }
-function copyLiveCode(){
-  const code=document.getElementById('m-code')?.textContent||'';
+async function copyLiveCode(){
+  if(!_modalDeal){
+    toast('No deal selected', 'err');
+    return;
+  }
+
+  const { data: authData, error: authError } = await supabaseClient.auth.getUser();
+
+  if(authError || !authData?.user){
+    toast('Please sign in first', 'err');
+    return;
+  }
+
+  const codeEl = document.getElementById('m-code');
+  let code = codeEl?.textContent?.trim() || '';
+
+  if(!code || code === '—'){
+    code = generateRedemptionCode(_modalDeal.id);
+  }
+
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+  const { error } = await supabaseClient
+    .from('redemptions')
+    .insert([{
+      offer_id: _modalDeal.id,
+      customer_id: authData.user.id,
+      restaurant_id: _modalDeal.restaurant_id,
+      code,
+      status: 'issued',
+      expires_at: expiresAt
+    }]);
+
+  if(error){
+    if(String(error.message || '').toLowerCase().includes('duplicate')){
+      // wenn code schon existiert, trotzdem kopieren wir den sichtbaren
+      navigator.clipboard.writeText(code).catch(()=>{});
+      toast('Code copied!', 'ok');
+      return;
+    }
+
+    console.error('Redemption insert error:', error);
+    toast(error.message || 'Could not issue code', 'err');
+    return;
+  }
+
+  if(codeEl) codeEl.textContent = code;
+
   navigator.clipboard.writeText(code).catch(()=>{});
-  toast('Code copied!','ok');
+  toast('Code copied and issued! ✅', 'ok');
 }
 
 /* ─── RESTAURANT CODE VERIFIER ─── */
-function verifyCode(){
-  const val=(document.getElementById('verify-input')?.value||'').trim().toUpperCase();
-  const res=document.getElementById('verify-result');
-  if(!val||!val.startsWith('TD-')){
-    res.className='verify-result invalid';
-    res.textContent='❌ Invalid format. Code must start with TD-';
-    return;
-  }
-  const parts=val.split('-');
-  if(parts.length<3){
-    res.className='verify-result invalid';
-    res.textContent='❌ Code format incorrect.';
-    return;
-  }
-  const dealKey=parts[1];
-  const deal=DEALS.find(d=>d.dealKey===dealKey);
-  if(!deal){
-    res.className='verify-result invalid';
-    res.textContent='❌ No deal found for this code.';
-    return;
-  }
-  const block=Math.floor(Date.now()/(5*60*1000));
-  let matched=false;
-  for(let offset=0;offset<=0;offset++){
-    const seed=`${dealKey}|${USER_ID}|${block-offset}`;
-    let h=5381;for(let i=0;i<seed.length;i++){h=((h<<5)+h)^seed.charCodeAt(i);h>>>=0}
-    const expected='TD-'+dealKey+'-'+h.toString(36).toUpperCase().padEnd(6,'0').slice(0,6);
-    if(expected===val){matched=true;break;}
-  }
-  if(matched){
-    res.className='verify-result valid';
-    res.innerHTML=`✅ <strong>Valid!</strong> Offer: <strong>${deal.title}</strong> at <strong>${deal.restaurant}</strong>. You may redeem it now.`;
-  } else {
-    res.className='verify-result invalid';
-    res.innerHTML=`❌ Code does not match or has expired. Ask the customer to refresh their app.`;
-  }
-}
+async function verifyCode(){
+  const val = (document.getElementById('verify-input')?.value || '').trim().toUpperCase();
+  const res = document.getElementById('verify-result');
 
-/* ─── MANAGER INIT ─── */
-const FAKE_USERS=[
-  {name:'Karim Hassan',email:'karim.h@mail.com',plan:'Gourmet',joined:'Jan 5, 2025',deals:34,status:'active'},
-  {name:'Rania Khalil',email:'rania.k@mail.com',plan:'Annual Pro',joined:'Feb 12, 2025',deals:61,status:'active'},
-  {name:'Sarah Matta',email:'sarah.m@mail.com',plan:'Explorer',joined:'Mar 3, 2025',deals:8,status:'active'},
-  {name:'Elie Bou Saab',email:'elie.bs@mail.com',plan:'Gourmet',joined:'Mar 20, 2025',deals:22,status:'active'},
-  {name:'Rima Geagea',email:'rima.g@mail.com',plan:'Annual Pro',joined:'Apr 2, 2025',deals:45,status:'active'},
-  {name:'Ali Fake',email:'ali.fake@mail.com',plan:'Explorer',joined:'May 1, 2025',deals:2,status:'banned'},
-];
+  if(!val){
+    res.className = 'verify-result invalid';
+    res.textContent = '❌ Please enter a code.';
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from('redemptions')
+    .select('*')
+    .eq('code', val)
+    .single();
+
+  if(error || !data){
+    console.error('Verify lookup error:', error);
+    res.className = 'verify-result invalid';
+    res.textContent = '❌ Code not found.';
+    return;
+  }
+
+  if(data.status === 'redeemed'){
+    res.className = 'verify-result invalid';
+    res.textContent = '❌ This code has already been redeemed.';
+    return;
+  }
+
+  if(data.expires_at && new Date(data.expires_at) < new Date()){
+    res.className = 'verify-result invalid';
+    res.textContent = '❌ This code has expired.';
+    return;
+  }
+
+  const { error: updateError } = await supabaseClient
+    .from('redemptions')
+    .update({
+      status: 'redeemed',
+      redeemed_at: new Date().toISOString()
+    })
+    .eq('id', data.id);
+
+  if(updateError){
+    console.error('Verify update error:', updateError);
+    res.className = 'verify-result invalid';
+    res.textContent = '❌ Could not redeem code.';
+    return;
+  }
+
+  res.className = 'verify-result valid';
+  res.innerHTML = `✅ <strong>Valid!</strong> Code accepted and marked as redeemed.`;
+}
 function initManager(){
   const body=document.getElementById('users-body');
   if(!body||body.children.length) return;
