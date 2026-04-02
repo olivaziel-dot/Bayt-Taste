@@ -3238,29 +3238,34 @@ async function initManager(){
 
   const ownerIds = [...new Set(restaurants.map(r => r.owner_id).filter(Boolean))];
 
-  const { data: owners, error: ownersError } = await supabaseClient
-    .from('profiles')
-    .select('id, name, email')
-    .in('id', ownerIds);
+  let ownerMap = {};
+  if(ownerIds.length){
+    const { data: owners, error: ownersError } = await supabaseClient
+      .from('profiles')
+      .select('id, name, email')
+      .in('id', ownerIds);
 
-  if(ownersError){
-    console.error('Error loading restaurant owners:', ownersError);
-    return;
+    if(ownersError){
+      console.error('Error loading restaurant owners:', ownersError);
+    } else {
+      (owners || []).forEach(owner => {
+        ownerMap[owner.id] = owner;
+      });
+    }
   }
 
-  const ownerMap = {};
-  (owners || []).forEach(o => {
-    ownerMap[o.id] = o;
-  });
-
-  const { data: offers } = await supabaseClient
+  let offerCountMap = {};
+  const { data: offers, error: offersError } = await supabaseClient
     .from('offers')
     .select('id, restaurant_id');
 
-  const offerCountMap = {};
-  (offers || []).forEach(o => {
-    offerCountMap[o.restaurant_id] = (offerCountMap[o.restaurant_id] || 0) + 1;
-  });
+  if(offersError){
+    console.error('Error loading restaurant offers for manager:', offersError);
+  } else {
+    (offers || []).forEach(offer => {
+      offerCountMap[offer.restaurant_id] = (offerCountMap[offer.restaurant_id] || 0) + 1;
+    });
+  }
 
   tbody.innerHTML = restaurants.map(r => {
     const owner = ownerMap[r.owner_id] || {};
@@ -3274,7 +3279,7 @@ async function initManager(){
         <td><span class="badge-blue">Partner</span></td>
         <td>${offerCount}</td>
         <td><span class="badge-green">Active</span></td>
-        <td><button class="btn-ghost" onclick="managerViewUser('${u.id}')">View</button></td>
+        <td><button class="btn-ghost">View</button></td>
       </tr>
     `;
   }).join('');
