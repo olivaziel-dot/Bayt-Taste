@@ -1162,6 +1162,10 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
             <div class="form-group"><label>Offer Title</label><input class="input-field" id="offer-title" placeholder="e.g. 30% Off the Entire Menu"/></div>
             <div class="form-group"><label>Short Description (shown on card)</label><input class="input-field" id="offer-short-desc" placeholder="e.g. Valid at lunch, Mon–Fri"/></div>
             <div class="form-group"><label>Full Description</label><textarea class="input-field" id="offer-full-desc" rows="3" placeholder="Describe the full offer for the deal page…" style="resize:vertical"></textarea></div>
+             <div class="form-group">
+         <label>Image URL</label>
+         <input class="input-field" id="offer-image-url" placeholder="https://example.com/your-offer-image.jpg"/>
+         </div>
             <div class="three-col">
               <div class="form-group"><label>Discount Type</label><select class="input-field" id="offer-discount-type">
            <option value="percentage">Percentage (%)</option>
@@ -1945,6 +1949,7 @@ async function initCustomer(){
   document.getElementById('offer-title').value = offer.title || '';
   document.getElementById('offer-short-desc').value = offer.short_desc || '';
   document.getElementById('offer-full-desc').value = offer.full_desc || '';
+  document.getElementById('offer-image-url').value = offer.image_url || '';
   document.getElementById('offer-discount-type').value = offer.discount_type || 'percentage';
   document.getElementById('offer-discount-value').value = offer.discount_value || '';
   document.getElementById('offer-original-price').value = offer.original_price || '';
@@ -2004,6 +2009,7 @@ async function initCustomer(){
   const title = document.getElementById('offer-title')?.value?.trim() || '';
   const shortDesc = document.getElementById('offer-short-desc')?.value?.trim() || '';
   const fullDesc = document.getElementById('offer-full-desc')?.value?.trim() || '';
+     const imageUrl = document.getElementById('offer-image-url')?.value?.trim() || null;
   const discountType = document.getElementById('offer-discount-type')?.value || null;
   const discountValue = document.getElementById('offer-discount-value')?.value?.trim() || null;
   const originalPrice = document.getElementById('offer-original-price')?.value?.trim() || null;
@@ -2029,20 +2035,21 @@ async function initCustomer(){
   }
 
   const offerPayload = {
-    restaurant_id: restaurantId,
-    title,
-    short_desc: shortDesc,
-    full_desc: fullDesc,
-    discount_type: discountType,
-    discount_value: discountValue,
-    original_price: originalPrice,
-    category,
-    valid_from: validFrom,
-    valid_until: validUntil,
-    start_time: startTime,
-    end_time: endTime,
-    status
-  };
+  restaurant_id: restaurantId,
+  title,
+  short_desc: shortDesc,
+  full_desc: fullDesc,
+  image_url: imageUrl,
+  discount_type: discountType,
+  discount_value: discountValue,
+  original_price: originalPrice,
+  category,
+  valid_from: validFrom,
+  valid_until: validUntil,
+  start_time: startTime,
+  end_time: endTime,
+  status
+};
 
   let savedOffer = null;
   let offerError = null;
@@ -2277,7 +2284,7 @@ function liveCode(dealKey){
       district: restaurant.location || 'Lebanon',
       cat: o.category || 'other',
       time: o.start_time ? 'lunch' : 'dinner',
-      img: 'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=500&q=75',
+      img: o.image_url || 'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=500&q=75',
       disc: o.discount_value || 'Deal',
       orig: o.original_price || '-',
       price: o.discount_value || '-',
