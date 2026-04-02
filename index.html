@@ -2482,8 +2482,7 @@ async function openDeal(id){
   document.getElementById('deal-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
   const codeEl = document.getElementById('m-code');
-if(codeEl) codeEl.textContent = generateRedemptionCode(d.id);
-startCouponTimer(d.dealKey);
+if(codeEl) codeEl.textContent = '—';
 }
    async function loadCurrentRestaurant(){
   const { data: authData, error: authError } = await supabaseClient.auth.getUser();
@@ -2638,11 +2637,9 @@ async function copyLiveCode(){
   }
 
   const codeEl = document.getElementById('m-code');
-  let code = codeEl?.textContent?.trim() || '';
+  let code = generateRedemptionCode(_modalDeal.id);
 
-  if(!code || code === '—'){
-    code = generateRedemptionCode(_modalDeal.id);
-  }
+  if(codeEl) codeEl.textContent = code;
 
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
@@ -2659,7 +2656,6 @@ async function copyLiveCode(){
 
   if(error){
     if(String(error.message || '').toLowerCase().includes('duplicate')){
-      // wenn code schon existiert, trotzdem kopieren wir den sichtbaren
       navigator.clipboard.writeText(code).catch(()=>{});
       toast('Code copied!', 'ok');
       return;
@@ -2670,12 +2666,9 @@ async function copyLiveCode(){
     return;
   }
 
-  if(codeEl) codeEl.textContent = code;
-
   navigator.clipboard.writeText(code).catch(()=>{});
   toast('Code copied and issued! ✅', 'ok');
 }
-
 /* ─── RESTAURANT CODE VERIFIER ─── */
 async function verifyCode(){
   const val = (document.getElementById('verify-input')?.value || '').trim().toUpperCase();
@@ -2706,9 +2699,9 @@ async function verifyCode(){
     return;
   }
 
-  if(data.expires_at && new Date(data.expires_at) < new Date()){
+  if(data.status !== 'issued'){
     res.className = 'verify-result invalid';
-    res.textContent = '❌ This code has expired.';
+    res.textContent = '❌ This code is not valid anymore.';
     return;
   }
 
