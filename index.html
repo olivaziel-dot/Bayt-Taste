@@ -1461,10 +1461,10 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
       <div class="pane on" id="pane-m-overview">
         <div class="rdash-header"><h1>Admin Dashboard</h1><p>Platform-wide overview for TableDeal Lebanon.</p></div>
         <div class="stat-row">
-          <div class="stat-card"><div class="sc-label">Total Members</div><div class="sc-val">12,847</div><div class="sc-change up">↑ 340 this week</div></div>
-          <div class="stat-card"><div class="sc-label">Active Restaurants</div><div class="sc-val">183</div><div class="sc-change up">↑ 5 this month</div></div>
-          <div class="stat-card"><div class="sc-label">Active Deals</div><div class="sc-val">412</div><div class="sc-change up">↑ 28 new</div></div>
-          <div class="stat-card"><div class="sc-label">Monthly Revenue</div><div class="sc-val">$8,940</div><div class="sc-change up">↑ 11%</div></div>
+          <div class="stat-card"><div class="sc-label">Total Members</div><div class="sc-val">12,847</div><div class="sc-change up">Live data</div></div>
+          <div class="stat-card"><div class="sc-label">Active Restaurants</div><div class="sc-val">183</div><div class="sc-change up">Live data</div></div>
+          <div class="stat-card"><div class="sc-label">Active Deals</div><div class="sc-val">412</div><div class="sc-change up">Live data</div></div>
+          <div class="stat-card"><div class="sc-label">Monthly Revenue</div><div class="sc-val">$8,940</div><div class="sc-change up">Live data</div></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
           <div class="panel">
@@ -1478,15 +1478,24 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
               <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:100%"></div><span style="font-size:.66rem;color:var(--text-muted)">Jun</span></div>
             </div></div>
           </div>
-          <div class="panel">
-            <div class="panel-head">Platform Health</div>
-            <div style="display:flex;flex-direction:column;gap:10px">
-              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)"><span style="font-size:.84rem;color:var(--text-soft)">Banned Accounts</span><span style="font-weight:600;color:var(--red)">3</span></div>
-              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)"><span style="font-size:.84rem;color:var(--text-soft)">Pending Restaurant Approvals</span><span style="font-weight:600;color:var(--gold)">7</span></div>
-              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)"><span style="font-size:.84rem;color:var(--text-soft)">Fraud Reports This Month</span><span style="font-weight:600;color:var(--red)">1</span></div>
-              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)"><span style="font-size:.84rem;color:var(--text-soft)">Deals Redeemed Today</span><span style="font-weight:600;color:var(--green)">284</span></div>
-            </div>
-          </div>
+          <div id="manager-platform-health" style="display:flex;flex-direction:column;gap:10px">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)">
+    <span style="font-size:.84rem;color:var(--text-soft)">Total Reservations</span>
+    <span id="mgr-total-reservations" style="font-weight:600;color:var(--gold)">0</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)">
+    <span style="font-size:.84rem;color:var(--text-soft)">Redeemed Coupons</span>
+    <span id="mgr-total-redemptions" style="font-weight:600;color:var(--green)">0</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)">
+    <span style="font-size:.84rem;color:var(--text-soft)">Pending Reservations</span>
+    <span id="mgr-pending-reservations" style="font-weight:600;color:var(--red)">0</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)">
+    <span style="font-size:.84rem;color:var(--text-soft)">Active Offers</span>
+    <span id="mgr-active-offers" style="font-weight:600;color:var(--blue)">0</span>
+  </div>
+</div>
         </div>
       </div>
       <!-- ALL MEMBERS -->
@@ -1731,7 +1740,9 @@ async function doLogin(){
     customersRes,
     restaurantsRes,
     activeOffersRes,
-    redemptionsRes
+    redemptionsRes,
+    reservationsRes,
+    pendingReservationsRes
   ] = await Promise.all([
     supabaseClient
       .from('profiles')
@@ -1750,19 +1761,40 @@ async function doLogin(){
     supabaseClient
       .from('redemptions')
       .select('*', { count: 'exact', head: true })
-      .eq('status', 'redeemed')
+      .eq('status', 'redeemed'),
+
+    supabaseClient
+      .from('reservations')
+      .select('*', { count: 'exact', head: true }),
+
+    supabaseClient
+      .from('reservations')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending')
   ]);
 
   const totalMembers = customersRes.count || 0;
   const totalRestaurants = restaurantsRes.count || 0;
   const activeDeals = activeOffersRes.count || 0;
   const totalRedemptions = redemptionsRes.count || 0;
+  const totalReservations = reservationsRes.count || 0;
+  const pendingReservations = pendingReservationsRes.count || 0;
 
   const vals = document.querySelectorAll('#pane-m-overview .sc-val');
   if(vals[0]) vals[0].textContent = totalMembers;
   if(vals[1]) vals[1].textContent = totalRestaurants;
   if(vals[2]) vals[2].textContent = activeDeals;
   if(vals[3]) vals[3].textContent = totalRedemptions;
+
+  const totalReservationsEl = document.getElementById('mgr-total-reservations');
+  const totalRedemptionsEl = document.getElementById('mgr-total-redemptions');
+  const pendingReservationsEl = document.getElementById('mgr-pending-reservations');
+  const activeOffersEl = document.getElementById('mgr-active-offers');
+
+  if(totalReservationsEl) totalReservationsEl.textContent = totalReservations;
+  if(totalRedemptionsEl) totalRedemptionsEl.textContent = totalRedemptions;
+  if(pendingReservationsEl) pendingReservationsEl.textContent = pendingReservations;
+  if(activeOffersEl) activeOffersEl.textContent = activeDeals;
 }
 
 /* ─── REGISTER HANDLER ─── */
