@@ -1443,6 +1443,7 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
         <div class="sb-sec">Users</div>
         <div class="sb-link" onclick="paneM('m-users',this)"><span class="ico">👥</span>All Members</div>
         <div class="sb-link" onclick="paneM('m-restaurants',this)"><span class="ico">🏪</span>All Restaurants</div>
+         <div class="sb-link" onclick="paneM('m-offers',this)"><span class="ico">🏷️</span>All Offers</div>
         <div class="sb-link" onclick="paneM('m-banned',this)"><span class="ico">🚫</span>Banned Accounts</div>
         <div class="sb-sec">Finance</div>
         <div class="sb-link" onclick="paneM('m-revenue',this)"><span class="ico">💰</span>Revenue</div>
@@ -1457,47 +1458,78 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
       </div>
     </aside>
     <main class="rdash-main">
-      <!-- MANAGER OVERVIEW -->
-      <div class="pane on" id="pane-m-overview">
-        <div class="rdash-header"><h1>Admin Dashboard</h1><p>Platform-wide overview for TableDeal Lebanon.</p></div>
-        <div class="stat-row">
-          <div class="stat-card"><div class="sc-label">Total Members</div><div class="sc-val">12,847</div><div class="sc-change up">Live data</div></div>
-          <div class="stat-card"><div class="sc-label">Active Restaurants</div><div class="sc-val">183</div><div class="sc-change up">Live data</div></div>
-          <div class="stat-card"><div class="sc-label">Active Deals</div><div class="sc-val">412</div><div class="sc-change up">Live data</div></div>
-          <div class="stat-card"><div class="sc-label">Monthly Revenue</div><div class="sc-val">$8,940</div><div class="sc-change up">Live data</div></div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
-          <div class="panel">
-            <div class="panel-head">Revenue — Last 6 Months</div>
-            <div class="bar-chart-wrap" style="height:150px"><div class="bar-chart" style="height:120px;justify-content:space-around;padding:0 10px">
-              <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:55%"></div><span style="font-size:.66rem;color:var(--text-muted)">Jan</span></div>
-              <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:65%"></div><span style="font-size:.66rem;color:var(--text-muted)">Feb</span></div>
-              <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:72%"></div><span style="font-size:.66rem;color:var(--text-muted)">Mar</span></div>
-              <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:80%"></div><span style="font-size:.66rem;color:var(--text-muted)">Apr</span></div>
-              <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:90%"></div><span style="font-size:.66rem;color:var(--text-muted)">May</span></div>
-              <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:100%"></div><span style="font-size:.66rem;color:var(--text-muted)">Jun</span></div>
-            </div></div>
-          </div>
-          <div id="manager-platform-health" style="display:flex;flex-direction:column;gap:10px">
-  <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)">
-    <span style="font-size:.84rem;color:var(--text-soft)">Total Reservations</span>
-    <span id="mgr-total-reservations" style="font-weight:600;color:var(--gold)">0</span>
+<!-- MANAGER OVERVIEW -->
+<div class="pane on" id="pane-m-overview">
+  <div class="rdash-header"><h1>Admin Dashboard</h1><p>Platform-wide overview for TableDeal Lebanon.</p></div>
+
+  <div class="stat-row">
+    <div class="stat-card"><div class="sc-label">Total Members</div><div class="sc-val">0</div><div class="sc-change up">Live data</div></div>
+    <div class="stat-card"><div class="sc-label">Active Restaurants</div><div class="sc-val">0</div><div class="sc-change up">Live data</div></div>
+    <div class="stat-card"><div class="sc-label">Active Deals</div><div class="sc-val">0</div><div class="sc-change up">Live data</div></div>
+    <div class="stat-card"><div class="sc-label">Monthly Revenue</div><div class="sc-val">0</div><div class="sc-change up">Live data</div></div>
   </div>
-  <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)">
-    <span style="font-size:.84rem;color:var(--text-soft)">Redeemed Coupons</span>
-    <span id="mgr-total-redemptions" style="font-weight:600;color:var(--green)">0</span>
-  </div>
-  <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)">
-    <span style="font-size:.84rem;color:var(--text-soft)">Pending Reservations</span>
-    <span id="mgr-pending-reservations" style="font-weight:600;color:var(--red)">0</span>
-  </div>
-  <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)">
-    <span style="font-size:.84rem;color:var(--text-soft)">Active Offers</span>
-    <span id="mgr-active-offers" style="font-weight:600;color:var(--blue)">0</span>
-  </div>
-</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+    <div class="panel">
+      <div class="panel-head">Revenue — Last 6 Months</div>
+      <div class="bar-chart-wrap" style="height:150px">
+        <div class="bar-chart" style="height:120px;justify-content:space-around;padding:0 10px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:55%"></div><span style="font-size:.66rem;color:var(--text-muted)">Jan</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:65%"></div><span style="font-size:.66rem;color:var(--text-muted)">Feb</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:72%"></div><span style="font-size:.66rem;color:var(--text-muted)">Mar</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:80%"></div><span style="font-size:.66rem;color:var(--text-muted)">Apr</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:90%"></div><span style="font-size:.66rem;color:var(--text-muted)">May</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:100%"></div><span style="font-size:.66rem;color:var(--text-muted)">Jun</span></div>
         </div>
       </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">Platform Health</div>
+      <div id="manager-platform-health" style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)">
+          <span style="font-size:.84rem;color:var(--text-soft)">Total Reservations</span>
+          <span id="mgr-total-reservations" style="font-weight:600;color:var(--gold)">0</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)">
+          <span style="font-size:.84rem;color:var(--text-soft)">Redeemed Coupons</span>
+          <span id="mgr-total-redemptions" style="font-weight:600;color:var(--green)">0</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)">
+          <span style="font-size:.84rem;color:var(--text-soft)">Pending Reservations</span>
+          <span id="mgr-pending-reservations" style="font-weight:600;color:var(--red)">0</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)">
+          <span style="font-size:.84rem;color:var(--text-soft)">Active Offers</span>
+          <span id="mgr-active-offers" style="font-weight:600;color:var(--blue)">0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="pane" id="pane-m-offers">
+  <div class="rdash-header">
+    <h1>All Offers</h1>
+    <p>View all offers across the platform.</p>
+  </div>
+
+  <div class="t-wrap">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Offer</th>
+          <th>Restaurant</th>
+          <th>Category</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="manager-offers-body"></tbody>
+    </table>
+  </div>
+</div>
       <!-- ALL MEMBERS -->
       <div class="pane" id="pane-m-users">
         <div class="rdash-header"><h1>All Members</h1><p>Manage customer accounts. Ban abusive users or those attempting fraud.</p></div>
@@ -1984,6 +2016,92 @@ function pane(id, linkEl){
   if(el) el.classList.add('on');
   document.querySelectorAll('#page-restaurant .sb-link').forEach(l=>l.classList.remove('on'));
   if(linkEl) linkEl.classList.add('on');
+}
+   async function loadManagerOffers(){
+  const { data: offers, error: offersError } = await supabaseClient
+    .from('offers')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if(offersError){
+    console.error('Error loading manager offers:', offersError);
+    return;
+  }
+
+  const body = document.getElementById('manager-offers-body');
+  if(!body) return;
+
+  if(!offers || !offers.length){
+    body.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align:center;color:var(--text-muted)">No offers found</td>
+      </tr>
+    `;
+    return;
+  }
+
+  const restaurantIds = [...new Set(offers.map(o => o.restaurant_id).filter(Boolean))];
+
+  const { data: restaurants, error: restaurantsError } = await supabaseClient
+    .from('restaurants')
+    .select('id, name')
+    .in('id', restaurantIds);
+
+  if(restaurantsError){
+    console.error('Error loading restaurants for offers:', restaurantsError);
+    return;
+  }
+
+  const restaurantMap = {};
+  (restaurants || []).forEach(r => {
+    restaurantMap[r.id] = r;
+  });
+
+  body.innerHTML = offers.map(o => {
+    const restaurant = restaurantMap[o.restaurant_id] || {};
+
+    return `
+      <tr>
+        <td>
+          <strong style="color:var(--text)">${o.title || '-'}</strong><br/>
+          <span style="font-size:.74rem;color:var(--text-dim)">${o.short_desc || ''}</span>
+        </td>
+        <td>${restaurant.name || '-'}</td>
+        <td>${o.category || '-'}</td>
+        <td>
+          ${
+            o.status === 'active'
+              ? '<span class="badge-green">● Active</span>'
+              : o.status === 'draft'
+              ? '<span class="badge-yellow">● Draft</span>'
+              : '<span class="badge-red">● Paused</span>'
+          }
+        </td>
+        <td>${o.created_at ? new Date(o.created_at).toLocaleDateString() : '-'}</td>
+        <td>
+          <button class="btn-ghost" onclick="managerToggleOfferStatus('${o.id}','${o.status === 'active' ? 'paused' : 'active'}')">
+            ${o.status === 'active' ? 'Pause' : 'Activate'}
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+   async function managerToggleOfferStatus(offerId, newStatus){
+  const { error } = await supabaseClient
+    .from('offers')
+    .update({ status: newStatus })
+    .eq('id', offerId);
+
+  if(error){
+    console.error('Manager offer status update error:', error);
+    toast('Could not update offer status', 'err');
+    return;
+  }
+
+  toast(`Offer ${newStatus === 'active' ? 'activated' : 'paused'}!`, 'ok');
+  await loadManagerOffers();
+  await loadManagerStats();
 }
 
 /* ─── MANAGER PANE SWITCHER ─── */
@@ -3016,6 +3134,7 @@ async function initManager(){
   await loadManagerUsers();
   await loadManagerRestaurants();
    await loadManagerActivity();
+   await loadManagerOffers();
 }
    async function loadManagerUsers(){
   const { data, error } = await supabaseClient
