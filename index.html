@@ -1777,7 +1777,7 @@ async function doLogin(){
 
   if(profile.is_banned){
     await supabaseClient.auth.signOut();
-    toast('This account has been suspended','err');
+    await go('account-banned');
     return;
   }
 
@@ -1788,6 +1788,14 @@ async function doLogin(){
   }
 
   if(profile.role === 'restaurant'){
+    const restaurant = await getCurrentRestaurant();
+
+    if(restaurant && restaurant.status === 'suspended'){
+      await supabaseClient.auth.signOut();
+      await go('restaurant-suspended');
+      return;
+    }
+
     await go('restaurant');
     toast('Welcome back!','ok');
     return;
@@ -2362,15 +2370,16 @@ async function initRestaurant(){
   const restaurant = await getCurrentRestaurant();
 
   if(restaurant && restaurant.status === 'suspended'){
-    toast('Your restaurant account is suspended','err');
-    await go('landing');
+    await supabaseClient.auth.signOut();
+    await go('restaurant-suspended');
     return;
   }
+
   buildHours();
   await loadRestaurantHours();
   await loadRestaurantOffers();
-   await loadRestaurantReservations();
-   await loadRestaurantRedemptions();
+  await loadRestaurantReservations();
+  await loadRestaurantRedemptions();
 }
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const DEF_HRS=[['12:00','23:00'],['12:00','23:00'],['12:00','23:00'],['12:00','23:00'],['12:00','00:00'],['11:00','00:00'],['11:00','22:00']];
@@ -4219,6 +4228,47 @@ function submitContact(){
       <div class="modal-tc">
         <h4>Recent Redemptions</h4>
         <ul id="mgr-offer-redemptions"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+   <div id="page-account-banned" class="page">
+  <div class="auth-page">
+    <div class="auth-bar">
+      <button class="auth-bar-back" onclick="go('landing')">← Back to Home</button>
+      <div class="nav-logo" style="font-size:1.35rem">Table<span>Deal</span></div>
+      <div style="width:130px"></div>
+    </div>
+
+    <div style="max-width:720px;margin:0 auto;padding:80px 36px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);padding:40px;text-align:center">
+        <div style="font-size:3rem;margin-bottom:14px">🚫</div>
+        <h1 style="font-family:'Cormorant Garamond',serif;font-size:2.4rem;margin-bottom:10px">Account Suspended</h1>
+        <p style="color:var(--text-soft);line-height:1.8;margin-bottom:24px">
+          This account has been suspended. If you believe this is a mistake, please contact support.
+        </p>
+        <button class="btn-gold" onclick="go('contact')">Contact Support</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="page-restaurant-suspended" class="page">
+  <div class="auth-page">
+    <div class="auth-bar">
+      <button class="auth-bar-back" onclick="go('landing')">← Back to Home</button>
+      <div class="nav-logo" style="font-size:1.35rem">Table<span>Deal</span></div>
+      <div style="width:130px"></div>
+    </div>
+
+    <div style="max-width:720px;margin:0 auto;padding:80px 36px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);padding:40px;text-align:center">
+        <div style="font-size:3rem;margin-bottom:14px">🏪</div>
+        <h1 style="font-family:'Cormorant Garamond',serif;font-size:2.4rem;margin-bottom:10px">Restaurant Suspended</h1>
+        <p style="color:var(--text-soft);line-height:1.8;margin-bottom:24px">
+          This restaurant account is currently suspended and cannot access the restaurant dashboard.
+        </p>
+        <button class="btn-gold" onclick="go('contact')">Contact Support</button>
       </div>
     </div>
   </div>
