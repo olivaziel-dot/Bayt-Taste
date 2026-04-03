@@ -3432,7 +3432,7 @@ async function initManager(){
   if(!restaurants || !restaurants.length){
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" style="text-align:center;color:var(--text-muted)">No restaurants found</td>
+        <td colspan="7" style="text-align:center;color:var(--text-muted)">No restaurants found</td>
       </tr>
     `;
     return;
@@ -3473,36 +3473,33 @@ async function initManager(){
     const owner = ownerMap[r.owner_id] || {};
     const offerCount = offerCountMap[r.id] || 0;
 
-    let statusHtml = '';
-    if(r.status === 'suspended'){
-      statusHtml = '<span class="badge-red">Suspended</span>';
-    } else if(r.status === 'pending'){
-      statusHtml = '<span class="badge-yellow">Pending</span>';
-    } else {
-      statusHtml = '<span class="badge-green">Active</span>';
-    }
+    const statusHtml =
+      r.status === 'suspended'
+        ? '<span class="badge-red">Suspended</span>'
+        : r.status === 'pending'
+        ? '<span class="badge-yellow">Pending</span>'
+        : '<span class="badge-green">Active</span>';
 
-    let actionHtml = '';
-    if(r.status === 'suspended'){
-      actionHtml = `
-        <button class="btn-ghost" onclick="managerViewRestaurant('${r.id}')">View</button>
-        <button class="unban-btn" onclick="managerToggleRestaurantStatus('${r.id}','active')">Activate</button>
-      `;
-    } else {
-      actionHtml = `
-        <button class="btn-ghost" onclick="managerViewRestaurant('${r.id}')">View</button>
-        <button class="ban-btn" onclick="managerToggleRestaurantStatus('${r.id}','suspended')">Suspend</button>
-      `;
-    }
+    const actionsHtml =
+      r.status === 'suspended'
+        ? `
+          <button class="btn-ghost" onclick="managerViewRestaurant('${r.id}')">View</button>
+          <button class="unban-btn" onclick="managerToggleRestaurantStatus('${r.id}','active')">Activate</button>
+        `
+        : `
+          <button class="btn-ghost" onclick="managerViewRestaurant('${r.id}')">View</button>
+          <button class="ban-btn" onclick="managerToggleRestaurantStatus('${r.id}','suspended')">Suspend</button>
+        `;
 
     return `
       <tr>
         <td><strong style="color:var(--text)">${r.name || '-'}</strong></td>
         <td>${owner.name || owner.email || '-'}</td>
         <td>${r.location || '-'}</td>
-        <td>${statusHtml}</td>
+        <td><span class="badge-blue">Partner</span></td>
         <td>${offerCount}</td>
-        <td>${actionHtml}</td>
+        <td>${statusHtml}</td>
+        <td>${actionsHtml}</td>
       </tr>
     `;
   }).join('');
@@ -3523,7 +3520,13 @@ async function initManager(){
   await loadManagerRestaurants();
   await loadManagerStats();
 }
-   async function managerViewRestaurant(restaurantId){
+  async function managerViewRestaurant(restaurantId){
+  const overlay = document.getElementById('manager-restaurant-overlay');
+  if(!overlay){
+    console.error('manager-restaurant-overlay not found');
+    return;
+  }
+
   const { data: restaurant, error: restaurantError } = await supabaseClient
     .from('restaurants')
     .select('*')
@@ -3560,49 +3563,28 @@ async function initManager(){
     .eq('restaurant_id', restaurantId)
     .order('created_at', { ascending: false });
 
-  const statusEl = document.getElementById('mgr-rest-status');
-  const nameEl = document.getElementById('mgr-rest-name');
-  const locationEl = document.getElementById('mgr-rest-location');
-  const ownerNameEl = document.getElementById('mgr-rest-owner-name');
-  const ownerEmailEl = document.getElementById('mgr-rest-owner-email');
-  const offerCountEl = document.getElementById('mgr-rest-offer-count');
-  const resCountEl = document.getElementById('mgr-rest-res-count');
-  const recentOffersEl = document.getElementById('mgr-rest-recent-offers');
-  const recentReservationsEl = document.getElementById('mgr-rest-recent-reservations');
-  const recentRedemptionsEl = document.getElementById('mgr-rest-recent-redemptions');
+  document.getElementById('mgr-rest-status').textContent =
+    `${restaurant.status || 'active'}${owner?.is_banned ? ' · owner banned' : ''}`;
+  document.getElementById('mgr-rest-name').textContent = restaurant.name || 'Restaurant';
+  document.getElementById('mgr-rest-location').textContent = restaurant.location || 'No location';
+  document.getElementById('mgr-rest-owner-name').textContent = owner?.name || 'No owner name';
+  document.getElementById('mgr-rest-owner-email').textContent = owner?.email || 'No owner email';
+  document.getElementById('mgr-rest-offer-count').textContent = String((offers || []).length);
+  document.getElementById('mgr-rest-res-count').textContent = String((reservations || []).length);
 
-  let statusText = restaurant.status || 'active';
-  if(owner?.is_banned){
-    statusText += ' · owner banned';
-  }
+  document.getElementById('mgr-rest-recent-offers').innerHTML =
+    (offers || []).slice(0, 5).map(o => `<li>${o.title || '-'} — ${o.status || '-'}</li>`).join('')
+    || '<li>No offers yet</li>';
 
-  if(statusEl) statusEl.textContent = statusText;
-  if(nameEl) nameEl.textContent = restaurant.name || 'Restaurant';
-  if(locationEl) locationEl.textContent = restaurant.location || 'No location';
-  if(ownerNameEl) ownerNameEl.textContent = owner?.name || 'No owner name';
-  if(ownerEmailEl) ownerEmailEl.textContent = owner?.email || 'No owner email';
-  if(offerCountEl) offerCountEl.textContent = String((offers || []).length);
-  if(resCountEl) resCountEl.textContent = String((reservations || []).length);
+  document.getElementById('mgr-rest-recent-reservations').innerHTML =
+    (reservations || []).slice(0, 5).map(r => `<li>${r.reserved_date} ${r.reserved_time} · party ${r.party_size} · ${r.status}</li>`).join('')
+    || '<li>No reservations yet</li>';
 
-  if(recentOffersEl){
-    recentOffersEl.innerHTML = (offers || []).slice(0, 5).map(o => `
-      <li>${o.title || '-'} — ${o.status || '-'}</li>
-    `).join('') || '<li>No offers yet</li>';
-  }
+  document.getElementById('mgr-rest-recent-redemptions').innerHTML =
+    (redemptions || []).slice(0, 5).map(r => `<li>${r.code} · ${r.status}</li>`).join('')
+    || '<li>No redemptions yet</li>';
 
-  if(recentReservationsEl){
-    recentReservationsEl.innerHTML = (reservations || []).slice(0, 5).map(r => `
-      <li>${r.reserved_date} ${r.reserved_time} · party ${r.party_size} · ${r.status}</li>
-    `).join('') || '<li>No reservations yet</li>';
-  }
-
-  if(recentRedemptionsEl){
-    recentRedemptionsEl.innerHTML = (redemptions || []).slice(0, 5).map(r => `
-      <li>${r.code} · ${r.status}</li>
-    `).join('') || '<li>No redemptions yet</li>';
-  }
-
-  document.getElementById('manager-restaurant-overlay').classList.add('open');
+  overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
 }
    function closeManagerRestaurantModal(){
@@ -4079,7 +4061,9 @@ function submitContact(){
   if(!email){toast('Please enter your email address','err');return;}
   toast('Message sent! We\'ll get back to you within 24 hours ✅','ok');
 }
-   <div class="overlay" id="manager-restaurant-overlay" onclick="if(event.target===this)closeManagerRestaurantModal()">
+  
+</script>
+ <div class="overlay" id="manager-restaurant-overlay" onclick="if(event.target===this)closeManagerRestaurantModal()">
   <div class="modal">
     <button class="modal-x" onclick="closeManagerRestaurantModal()">✕</button>
     <div class="modal-body">
@@ -4123,7 +4107,5 @@ function submitContact(){
     </div>
   </div>
 </div>
-</script>
-
 </body>
 </html>
