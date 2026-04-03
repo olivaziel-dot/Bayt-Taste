@@ -3432,7 +3432,7 @@ async function initManager(){
   if(!restaurants || !restaurants.length){
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" style="text-align:center;color:var(--text-muted)">No restaurants found</td>
+        <td colspan="6" style="text-align:center;color:var(--text-muted)">No restaurants found</td>
       </tr>
     `;
     return;
@@ -3473,29 +3473,36 @@ async function initManager(){
     const owner = ownerMap[r.owner_id] || {};
     const offerCount = offerCountMap[r.id] || 0;
 
+    let statusHtml = '';
+    if(r.status === 'suspended'){
+      statusHtml = '<span class="badge-red">Suspended</span>';
+    } else if(r.status === 'pending'){
+      statusHtml = '<span class="badge-yellow">Pending</span>';
+    } else {
+      statusHtml = '<span class="badge-green">Active</span>';
+    }
+
+    let actionHtml = '';
+    if(r.status === 'suspended'){
+      actionHtml = `
+        <button class="btn-ghost" onclick="managerViewRestaurant('${r.id}')">View</button>
+        <button class="unban-btn" onclick="managerToggleRestaurantStatus('${r.id}','active')">Activate</button>
+      `;
+    } else {
+      actionHtml = `
+        <button class="btn-ghost" onclick="managerViewRestaurant('${r.id}')">View</button>
+        <button class="ban-btn" onclick="managerToggleRestaurantStatus('${r.id}','suspended')">Suspend</button>
+      `;
+    }
+
     return `
       <tr>
         <td><strong style="color:var(--text)">${r.name || '-'}</strong></td>
         <td>${owner.name || owner.email || '-'}</td>
         <td>${r.location || '-'}</td>
-        <td>
-          ${
-            r.status === 'active'
-              ? '<span class="badge-green">Active</span>'
-              : r.status === 'pending'
-              ? '<span class="badge-yellow">Pending</span>'
-              : '<span class="badge-red">Suspended</span>'
-          }
-        </td>
+        <td>${statusHtml}</td>
         <td>${offerCount}</td>
-        <td>
-  <button class="btn-ghost" onclick="managerViewRestaurant('${r.id}')">View</button>
-  ${
-    r.status === 'suspended'
-      ? `<button class="unban-btn" onclick="managerToggleRestaurantStatus('${r.id}','active')">Activate</button>`
-      : `<button class="ban-btn" onclick="managerToggleRestaurantStatus('${r.id}','suspended')">Suspend</button>`
-  }
-</td>
+        <td>${actionHtml}</td>
       </tr>
     `;
   }).join('');
