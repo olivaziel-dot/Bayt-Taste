@@ -1675,14 +1675,52 @@ const SUPABASE_ANON_KEY = "sb_publishable_VSli61KD563Oa0aSAaKYTg_PgrRBX94";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ─── PAGE ROUTER ─── */
-function go(name){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  const page = document.getElementById('page-'+name);
-  if(page) page.classList.add('active');
-  window.scrollTo(0,0);
+async function go(name){
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
 
-  const nav = document.getElementById('main-nav');
-  if(nav) nav.style.display = name==='landing' ? 'flex' : 'none';
+  const target = document.getElementById('page-' + name);
+
+  if(!target){
+    console.error('Page not found:', name);
+
+    const fallback = document.getElementById('page-landing');
+    if(fallback) fallback.classList.add('active');
+
+    const mainNav = document.getElementById('main-nav');
+    if(mainNav) mainNav.style.display = 'flex';
+    return;
+  }
+
+  target.classList.add('active');
+  window.scrollTo(0, 0);
+
+  const mainNav = document.getElementById('main-nav');
+  if(mainNav){
+    mainNav.style.display = name === 'landing' ? 'flex' : 'none';
+  }
+
+  try {
+    if(name === 'customer'){
+      await initCustomer();
+    }
+
+    if(name === 'restaurant'){
+      await initRestaurant();
+    }
+
+    if(name === 'manager'){
+      await initManager();
+    }
+  } catch (err){
+    console.error('go() init error for page:', name, err);
+
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const fallback = document.getElementById('page-landing');
+    if(fallback) fallback.classList.add('active');
+
+    if(mainNav) mainNav.style.display = 'flex';
+    toast('Something went wrong while opening the page', 'err');
+  }
 }
 
 function scrollSection(id){
@@ -2006,55 +2044,75 @@ async function doRegister(type){
     initCustomer();
   }
 }
-   async function handleInitialSession(){
-  const { data, error } = await supabaseClient.auth.getSession();
+  async function handleInitialSession(){
+  try {
+    const { data, error } = await supabaseClient.auth.getSession();
 
-  if(error){
-    console.error('Session check error:', error);
-    return;
-  }
-
-  const session = data?.session;
-  if(!session || !session.user) return;
-
-  const userId = session.user.id;
-
-  const { data: profile, error: profileError } = await supabaseClient
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single();
-
-  if(profileError || !profile){
-    console.error('Initial profile load error:', profileError);
-    return;
-  }
-
-  if(profile.is_banned){
-    await supabaseClient.auth.signOut();
-    await go('account-banned');
-    return;
-  }
-
-  if(profile.role === 'manager'){
-    await go('manager');
-    return;
-  }
-
-  if(profile.role === 'restaurant'){
-    const restaurant = await getCurrentRestaurant();
-
-    if(restaurant && restaurant.status === 'suspended'){
-      await supabaseClient.auth.signOut();
-      await go('restaurant-suspended');
+    if(error){
+      console.error('Session check error:', error);
+      await go('landing');
       return;
     }
 
-    await go('restaurant');
-    return;
-  }
+    const session = data?.session;
+    if(!session || !session.user){
+      await go('landing');
+      return;
+    }
 
-  await go('customer');
+    const userId = session.user.id;
+
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if(profileError || !profile){
+      console.error('Initial profile load error:', profileError);
+      await supabaseClient.auth.signOut();
+      await go('landing');
+      return;
+    }
+
+    if(profile.is_banned){
+      await supabaseClient.auth.signOut();
+      await go('account-banned');
+      return;
+    }
+
+    if(profile.role === 'manager'){
+      await go('manager');
+      return;
+    }
+
+    if(profile.role === 'restaurant'){
+      const restaurant = await getCurrentRestaurant();
+
+      if(!restaurant){
+        console.error('Restaurant profile exists but no restaurant row found');
+        await supabaseClient.auth.signOut();
+        await go('landing');
+        toast('Restaurant profile is incomplete', 'err');
+        return;
+      }
+
+      if(restaurant.status === 'suspended'){
+        await supabaseClient.auth.signOut();
+        await go('restaurant-suspended');
+        return;
+      }
+
+      await go('restaurant');
+      return;
+    }
+
+    await go('customer');
+  } catch(err){
+    console.error('handleInitialSession fatal error:', err);
+    await supabaseClient.auth.signOut();
+    await go('landing');
+  }
 }
    async function loadManagerActivity(){
   const feed = document.getElementById('manager-activity-feed');
@@ -2417,42 +2475,34 @@ async function paneM(id, linkEl){
 
 /* ─── RESTAURANT INIT ─── */
 async function initRestaurant(){
-  const restaurant = await getCurrentRestaurant();
+  try {
+    const restaurant = await getCurrentRestaurant();
 
-  if(restaurant && restaurant.status === 'suspended'){
+    if(!restaurant){
+      console.error('initRestaurant: no restaurant found for this user');
+      await supabaseClient.auth.signOut();
+      await go('landing');
+      toast('Restaurant account is not set up correctly', 'err');
+      return;
+    }
+
+    if(restaurant.status === 'suspended'){
+      await supabaseClient.auth.signOut();
+      await go('restaurant-suspended');
+      return;
+    }
+
+    buildHours();
+    await loadRestaurantHours();
+    await loadRestaurantOffers();
+    await loadRestaurantReservations();
+    await loadRestaurantRedemptions();
+  } catch(err){
+    console.error('initRestaurant error:', err);
     await supabaseClient.auth.signOut();
-    await go('restaurant-suspended');
-    return;
+    await go('landing');
+    toast('Could not open restaurant dashboard', 'err');
   }
-
-  buildHours();
-  await loadRestaurantHours();
-  await loadRestaurantOffers();
-  await loadRestaurantReservations();
-  await loadRestaurantRedemptions();
-}
-const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-const DEF_HRS=[['12:00','23:00'],['12:00','23:00'],['12:00','23:00'],['12:00','23:00'],['12:00','00:00'],['11:00','00:00'],['11:00','22:00']];
-function buildHours(){
-  const g=document.getElementById('hrs-grid');
-  if(!g||g.children.length) return;
-  DAYS.forEach((day,i)=>{
-    const open=i<6;
-    const row=document.createElement('div');
-    row.className='hrs-row';
-    row.innerHTML=`
-      <span class="hrs-day">${day}</span>
-      <label class="toggle"><input type="checkbox" ${open?'checked':''} onchange="toggleDay(this)"/><span class="toggle-track"></span></label>
-      <div class="time-range" id="tr-${i}" style="${open?'':'opacity:.35;pointer-events:none'}">
-        <div style="display:flex;align-items:center;gap:8px">
-          <input class="input-field" type="time" value="${DEF_HRS[i][0]}" style="width:105px;padding:8px 10px"/>
-          <span style="color:var(--text-dim);font-size:.82rem">to</span>
-          <input class="input-field" type="time" value="${DEF_HRS[i][1]}" style="width:105px;padding:8px 10px"/>
-          <span style="font-size:.78rem;color:${open?'var(--green)':'var(--text-dim)'}" id="daystatus-${i}">${open?'Open':'Closed'}</span>
-        </div>
-      </div>`;
-    g.appendChild(row);
-  });
 }
    async function loadCustomerRedemptions(){
   const { data: authData, error: authError } = await supabaseClient.auth.getUser();
