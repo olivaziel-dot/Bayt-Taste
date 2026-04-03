@@ -3489,12 +3489,13 @@ async function initManager(){
         </td>
         <td>${offerCount}</td>
         <td>
-          ${
-            r.status === 'suspended'
-              ? `<button class="unban-btn" onclick="managerToggleRestaurantStatus('${r.id}','active')">Activate</button>`
-              : `<button class="ban-btn" onclick="managerToggleRestaurantStatus('${r.id}','suspended')">Suspend</button>`
-          }
-        </td>
+  <button class="btn-ghost" onclick="managerViewRestaurant('${r.id}')">View</button>
+  ${
+    r.status === 'suspended'
+      ? `<button class="unban-btn" onclick="managerToggleRestaurantStatus('${r.id}','active')">Activate</button>`
+      : `<button class="ban-btn" onclick="managerToggleRestaurantStatus('${r.id}','suspended')">Suspend</button>`
+  }
+</td>
       </tr>
     `;
   }).join('');
@@ -3514,6 +3515,92 @@ async function initManager(){
   toast(`Restaurant ${newStatus === 'active' ? 'activated' : 'suspended'}`, 'ok');
   await loadManagerRestaurants();
   await loadManagerStats();
+}
+   async function managerViewRestaurant(restaurantId){
+  const { data: restaurant, error: restaurantError } = await supabaseClient
+    .from('restaurants')
+    .select('*')
+    .eq('id', restaurantId)
+    .single();
+
+  if(restaurantError || !restaurant){
+    console.error('Error loading restaurant details:', restaurantError);
+    toast('Could not load restaurant details', 'err');
+    return;
+  }
+
+  const { data: owner } = await supabaseClient
+    .from('profiles')
+    .select('id, name, email, is_banned')
+    .eq('id', restaurant.owner_id)
+    .single();
+
+  const { data: offers } = await supabaseClient
+    .from('offers')
+    .select('id, title, status, created_at')
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: false });
+
+  const { data: reservations } = await supabaseClient
+    .from('reservations')
+    .select('id, reserved_date, reserved_time, party_size, status, created_at')
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: false });
+
+  const { data: redemptions } = await supabaseClient
+    .from('redemptions')
+    .select('id, code, status, created_at')
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: false });
+
+  const statusEl = document.getElementById('mgr-rest-status');
+  const nameEl = document.getElementById('mgr-rest-name');
+  const locationEl = document.getElementById('mgr-rest-location');
+  const ownerNameEl = document.getElementById('mgr-rest-owner-name');
+  const ownerEmailEl = document.getElementById('mgr-rest-owner-email');
+  const offerCountEl = document.getElementById('mgr-rest-offer-count');
+  const resCountEl = document.getElementById('mgr-rest-res-count');
+  const recentOffersEl = document.getElementById('mgr-rest-recent-offers');
+  const recentReservationsEl = document.getElementById('mgr-rest-recent-reservations');
+  const recentRedemptionsEl = document.getElementById('mgr-rest-recent-redemptions');
+
+  let statusText = restaurant.status || 'active';
+  if(owner?.is_banned){
+    statusText += ' · owner banned';
+  }
+
+  if(statusEl) statusEl.textContent = statusText;
+  if(nameEl) nameEl.textContent = restaurant.name || 'Restaurant';
+  if(locationEl) locationEl.textContent = restaurant.location || 'No location';
+  if(ownerNameEl) ownerNameEl.textContent = owner?.name || 'No owner name';
+  if(ownerEmailEl) ownerEmailEl.textContent = owner?.email || 'No owner email';
+  if(offerCountEl) offerCountEl.textContent = String((offers || []).length);
+  if(resCountEl) resCountEl.textContent = String((reservations || []).length);
+
+  if(recentOffersEl){
+    recentOffersEl.innerHTML = (offers || []).slice(0, 5).map(o => `
+      <li>${o.title || '-'} — ${o.status || '-'}</li>
+    `).join('') || '<li>No offers yet</li>';
+  }
+
+  if(recentReservationsEl){
+    recentReservationsEl.innerHTML = (reservations || []).slice(0, 5).map(r => `
+      <li>${r.reserved_date} ${r.reserved_time} · party ${r.party_size} · ${r.status}</li>
+    `).join('') || '<li>No reservations yet</li>';
+  }
+
+  if(recentRedemptionsEl){
+    recentRedemptionsEl.innerHTML = (redemptions || []).slice(0, 5).map(r => `
+      <li>${r.code} · ${r.status}</li>
+    `).join('') || '<li>No redemptions yet</li>';
+  }
+
+  document.getElementById('manager-restaurant-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+   function closeManagerRestaurantModal(){
+  document.getElementById('manager-restaurant-overlay').classList.remove('open');
+  document.body.style.overflow = '';
 }
 function banUserRow(btn,name){
   const row=btn.closest('tr');
@@ -3985,6 +4072,50 @@ function submitContact(){
   if(!email){toast('Please enter your email address','err');return;}
   toast('Message sent! We\'ll get back to you within 24 hours ✅','ok');
 }
+   <div class="overlay" id="manager-restaurant-overlay" onclick="if(event.target===this)closeManagerRestaurantModal()">
+  <div class="modal">
+    <button class="modal-x" onclick="closeManagerRestaurantModal()">✕</button>
+    <div class="modal-body">
+      <div class="modal-rest-tag" id="mgr-rest-status">Restaurant</div>
+      <h2 class="modal-title" id="mgr-rest-name">Restaurant Name</h2>
+      <p class="modal-desc" id="mgr-rest-location">Location</p>
+
+      <div class="modal-tc">
+        <h4>Owner</h4>
+        <ul>
+          <li id="mgr-rest-owner-name">-</li>
+          <li id="mgr-rest-owner-email">-</li>
+        </ul>
+      </div>
+
+      <div class="price-row">
+        <div>
+          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:4px">Offers</div>
+          <div class="price-row-new" id="mgr-rest-offer-count">0</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:4px">Reservations</div>
+          <div class="price-row-new" id="mgr-rest-res-count">0</div>
+        </div>
+      </div>
+
+      <div class="modal-tc">
+        <h4>Recent Offers</h4>
+        <ul id="mgr-rest-recent-offers"></ul>
+      </div>
+
+      <div class="modal-tc">
+        <h4>Recent Reservations</h4>
+        <ul id="mgr-rest-recent-reservations"></ul>
+      </div>
+
+      <div class="modal-tc">
+        <h4>Recent Redemptions</h4>
+        <ul id="mgr-rest-recent-redemptions"></ul>
+      </div>
+    </div>
+  </div>
+</div>
 </script>
 
 </body>
