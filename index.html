@@ -2193,16 +2193,20 @@ function pane(id, linkEl){
       restaurantInfo += `<br/><span style="font-size:.72rem;color:#e74c3c">Restaurant suspended</span>`;
     }
 
-    let actionHtml = '';
-    if(effectivelyInactive){
-      actionHtml = `<span style="font-size:.78rem;color:var(--text-dim)">Inactive by admin action</span>`;
-    } else {
-      actionHtml = `
-        <button class="btn-ghost" onclick="managerToggleOfferStatus('${o.id}','${o.status === 'active' ? 'paused' : 'active'}')">
-          ${o.status === 'active' ? 'Pause' : 'Activate'}
-        </button>
-      `;
-    }
+   let actionHtml = '';
+if(effectivelyInactive){
+  actionHtml = `
+    <button class="btn-ghost" onclick="managerViewOffer('${o.id}')">View</button>
+    <span style="font-size:.78rem;color:var(--text-dim)">Inactive by admin action</span>
+  `;
+} else {
+  actionHtml = `
+    <button class="btn-ghost" onclick="managerViewOffer('${o.id}')">View</button>
+    <button class="btn-ghost" onclick="managerToggleOfferStatus('${o.id}','${o.status === 'active' ? 'paused' : 'active'}')">
+      ${o.status === 'active' ? 'Pause' : 'Activate'}
+    </button>
+  `;
+}
 
     return `
       <tr>
@@ -3504,6 +3508,74 @@ async function initManager(){
     `;
   }).join('');
 }
+   async function managerViewOffer(offerId){
+  const overlay = document.getElementById('manager-offer-overlay');
+  if(!overlay){
+    console.error('manager-offer-overlay not found');
+    return;
+  }
+
+  const { data: offer, error: offerError } = await supabaseClient
+    .from('offers')
+    .select('*')
+    .eq('id', offerId)
+    .single();
+
+  if(offerError || !offer){
+    console.error('Error loading offer details:', offerError);
+    toast('Could not load offer details', 'err');
+    return;
+  }
+
+  let restaurantName = 'Unknown restaurant';
+  if(offer.restaurant_id){
+    const { data: restaurant } = await supabaseClient
+      .from('restaurants')
+      .select('name')
+      .eq('id', offer.restaurant_id)
+      .single();
+
+    if(restaurant?.name) restaurantName = restaurant.name;
+  }
+
+  const { data: terms } = await supabaseClient
+    .from('offer_terms')
+    .select('*')
+    .eq('offer_id', offerId)
+    .order('sort_order', { ascending: true });
+
+  const { data: redemptions } = await supabaseClient
+    .from('redemptions')
+    .select('*')
+    .eq('offer_id', offerId)
+    .order('created_at', { ascending: false });
+
+  document.getElementById('mgr-offer-status').textContent = offer.status || '-';
+  document.getElementById('mgr-offer-title').textContent = offer.title || '-';
+  document.getElementById('mgr-offer-restaurant').textContent = restaurantName;
+  document.getElementById('mgr-offer-category').textContent = `Category: ${offer.category || '-'}`;
+  document.getElementById('mgr-offer-discount-type').textContent = `Discount type: ${offer.discount_type || '-'}`;
+  document.getElementById('mgr-offer-discount-value').textContent = `Discount value: ${offer.discount_value || '-'}`;
+  document.getElementById('mgr-offer-original-price').textContent = `Original price: ${offer.original_price || '-'}`;
+  document.getElementById('mgr-offer-validity').textContent =
+    `Validity: ${offer.valid_from || '-'} → ${offer.valid_until || '-'}`;
+
+  document.getElementById('mgr-offer-short-desc').textContent =
+    offer.short_desc || 'No short description';
+
+  document.getElementById('mgr-offer-full-desc').textContent =
+    offer.full_desc || 'No full description';
+
+  document.getElementById('mgr-offer-terms').innerHTML =
+    (terms || []).map(t => `<li>${t.term_text}</li>`).join('') || '<li>No terms</li>';
+
+  document.getElementById('mgr-offer-redemptions').innerHTML =
+    (redemptions || []).slice(0, 5).map(r => `<li>${r.code} · ${r.status}</li>`).join('')
+    || '<li>No redemptions yet</li>';
+
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
    async function managerToggleRestaurantStatus(restaurantId, newStatus){
   const { error } = await supabaseClient
     .from('restaurants')
@@ -3519,6 +3591,11 @@ async function initManager(){
   toast(`Restaurant ${newStatus === 'active' ? 'activated' : 'suspended'}`, 'ok');
   await loadManagerRestaurants();
   await loadManagerStats();
+}
+   function closeManagerOfferModal(){
+  const overlay = document.getElementById('manager-offer-overlay');
+  if(overlay) overlay.classList.remove('open');
+  document.body.style.overflow = '';
 }
   async function managerViewRestaurant(restaurantId){
   const overlay = document.getElementById('manager-restaurant-overlay');
@@ -4103,6 +4180,45 @@ function submitContact(){
       <div class="modal-tc">
         <h4>Recent Redemptions</h4>
         <ul id="mgr-rest-recent-redemptions"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+   <div class="overlay" id="manager-offer-overlay" onclick="if(event.target===this)closeManagerOfferModal()">
+  <div class="modal">
+    <button class="modal-x" onclick="closeManagerOfferModal()">✕</button>
+    <div class="modal-body">
+      <div class="modal-rest-tag" id="mgr-offer-status">Offer Status</div>
+      <h2 class="modal-title" id="mgr-offer-title">Offer Title</h2>
+      <p class="modal-desc" id="mgr-offer-restaurant">Restaurant</p>
+
+      <div class="modal-tc">
+        <h4>Details</h4>
+        <ul>
+          <li id="mgr-offer-category">Category: -</li>
+          <li id="mgr-offer-discount-type">Discount type: -</li>
+          <li id="mgr-offer-discount-value">Discount value: -</li>
+          <li id="mgr-offer-original-price">Original price: -</li>
+          <li id="mgr-offer-validity">Validity: -</li>
+        </ul>
+      </div>
+
+      <div class="modal-tc">
+        <h4>Description</h4>
+        <ul>
+          <li id="mgr-offer-short-desc">-</li>
+          <li id="mgr-offer-full-desc">-</li>
+        </ul>
+      </div>
+
+      <div class="modal-tc">
+        <h4>Terms & Conditions</h4>
+        <ul id="mgr-offer-terms"></ul>
+      </div>
+
+      <div class="modal-tc">
+        <h4>Recent Redemptions</h4>
+        <ul id="mgr-offer-redemptions"></ul>
       </div>
     </div>
   </div>
