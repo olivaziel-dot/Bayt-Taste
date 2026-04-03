@@ -2492,7 +2492,11 @@ async function initRestaurant(){
       return;
     }
 
-    buildHours();
+    if(typeof buildHours === 'function'){
+  buildHours();
+} else {
+  console.error('buildHours is missing inside initRestaurant');
+}
     await loadRestaurantHours();
     await loadRestaurantOffers();
     await loadRestaurantReservations();
@@ -2581,14 +2585,59 @@ async function initRestaurant(){
     `;
   }).join('');
 }
+   const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const DEF_HRS = [
+  ['12:00','23:00'],
+  ['12:00','23:00'],
+  ['12:00','23:00'],
+  ['12:00','23:00'],
+  ['12:00','00:00'],
+  ['11:00','00:00'],
+  ['11:00','22:00']
+];
+
+function buildHours(){
+  const g = document.getElementById('hrs-grid');
+  if(!g || g.children.length) return;
+
+  DAYS.forEach((day, i) => {
+    const open = i < 6;
+    const row = document.createElement('div');
+    row.className = 'hrs-row';
+    row.innerHTML = `
+      <span class="hrs-day">${day}</span>
+      <label class="toggle">
+        <input type="checkbox" ${open ? 'checked' : ''} onchange="toggleDay(this)"/>
+        <span class="toggle-track"></span>
+      </label>
+      <div class="time-range" id="tr-${i}" style="${open ? '' : 'opacity:.35;pointer-events:none'}">
+        <div style="display:flex;align-items:center;gap:8px">
+          <input class="input-field" type="time" value="${DEF_HRS[i][0]}" style="width:105px;padding:8px 10px"/>
+          <span style="color:var(--text-dim);font-size:.82rem">to</span>
+          <input class="input-field" type="time" value="${DEF_HRS[i][1]}" style="width:105px;padding:8px 10px"/>
+          <span style="font-size:.78rem;color:${open ? 'var(--green)' : 'var(--text-dim)'}" id="daystatus-${i}">
+            ${open ? 'Open' : 'Closed'}
+          </span>
+        </div>
+      </div>
+    `;
+    g.appendChild(row);
+  });
+}
+
 function toggleDay(inp){
-  const row=inp.closest('.hrs-row');
-  const idx=[...document.getElementById('hrs-grid').children].indexOf(row);
-  const tr=document.getElementById('tr-'+idx);
-  const st=document.getElementById('daystatus-'+idx);
-  tr.style.opacity=inp.checked?'1':'0.35';
-  tr.style.pointerEvents=inp.checked?'auto':'none';
-  if(st){st.textContent=inp.checked?'Open':'Closed';st.style.color=inp.checked?'var(--green)':'var(--text-dim)'}
+  const row = inp.closest('.hrs-row');
+  const idx = [...document.getElementById('hrs-grid').children].indexOf(row);
+  const tr = document.getElementById('tr-' + idx);
+  const st = document.getElementById('daystatus-' + idx);
+
+  tr.style.opacity = inp.checked ? '1' : '0.35';
+  tr.style.pointerEvents = inp.checked ? 'auto' : 'none';
+
+  if(st){
+    st.textContent = inp.checked ? 'Open' : 'Closed';
+    st.style.color = inp.checked ? 'var(--green)' : 'var(--text-dim)';
+  }
 }
    async function loadCustomerReservations(){
   const { data: authData, error: authError } = await supabaseClient.auth.getUser();
@@ -3958,8 +4007,18 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
 
 /* ─── BOOT ─── */
 window.addEventListener('DOMContentLoaded', async () => {
-  buildHours();
-  await handleInitialSession();
+  try {
+    if(typeof buildHours === 'function'){
+      buildHours();
+    } else {
+      console.error('buildHours is missing');
+    }
+
+    await handleInitialSession();
+  } catch(err){
+    console.error('DOMContentLoaded boot error:', err);
+    await go('landing');
+  }
 });
 </script>
 
