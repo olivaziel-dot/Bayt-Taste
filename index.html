@@ -3074,7 +3074,30 @@ if(currentEditingOfferId){
       return;
     }
   }
-  currentEditingOfferId = null;
+    currentEditingOfferId = null;
+
+  document.getElementById('offer-title').value = '';
+  document.getElementById('offer-short-desc').value = '';
+  document.getElementById('offer-full-desc').value = '';
+  document.getElementById('offer-image-url').value = '';
+  document.getElementById('offer-discount-type').value = 'percentage';
+  document.getElementById('offer-discount-value').value = '';
+  document.getElementById('offer-original-price').value = '';
+  document.getElementById('offer-valid-from').value = '';
+  document.getElementById('offer-valid-until').value = '';
+  document.getElementById('offer-start-time').value = '12:00';
+  document.getElementById('offer-end-time').value = '16:00';
+
+  document.querySelectorAll('#offer-category-group .chip').forEach(chip => chip.classList.remove('on'));
+  const firstCategory = document.querySelector('#offer-category-group .chip');
+  if(firstCategory) firstCategory.classList.add('on');
+
+  const tcList = document.getElementById('tc-list');
+  if(tcList){
+    tcList.innerHTML = '';
+    addTC();
+  }
+
   toast(status === 'active' ? 'Offer published! 🎉' : 'Saved as draft!', 'ok');
   await loadRestaurantOffers();
   await loadManagerOffers?.();
@@ -3483,18 +3506,39 @@ async function copyLiveCode(){
     return;
   }
 
+  const customerId = authData.user.id;
   const codeEl = document.getElementById('m-code');
-  let code = generateRedemptionCode(_modalDeal.id);
 
-  if(codeEl) codeEl.textContent = code;
+  const { data: existingIssued, error: existingError } = await supabaseClient
+    .from('redemptions')
+    .select('*')
+    .eq('offer_id', _modalDeal.id)
+    .eq('customer_id', customerId)
+    .eq('status', 'issued')
+    .order('created_at', { ascending: false })
+    .limit(1);
 
+  if(existingError){
+    console.error('Existing redemption lookup error:', existingError);
+  }
+
+  const existing = existingIssued?.[0];
+
+  if(existing && existing.expires_at && new Date(existing.expires_at) > new Date()){
+    if(codeEl) codeEl.textContent = existing.code;
+    navigator.clipboard.writeText(existing.code).catch(()=>{});
+    toast('Live code copied! ✅', 'ok');
+    return;
+  }
+
+  const code = generateRedemptionCode(_modalDeal.id);
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
   const { error } = await supabaseClient
     .from('redemptions')
     .insert([{
       offer_id: _modalDeal.id,
-      customer_id: authData.user.id,
+      customer_id: customerId,
       restaurant_id: _modalDeal.restaurant_id,
       code,
       status: 'issued',
@@ -3502,16 +3546,12 @@ async function copyLiveCode(){
     }]);
 
   if(error){
-    if(String(error.message || '').toLowerCase().includes('duplicate')){
-      navigator.clipboard.writeText(code).catch(()=>{});
-      toast('Code copied!', 'ok');
-      return;
-    }
-
     console.error('Redemption insert error:', error);
     toast(error.message || 'Could not issue code', 'err');
     return;
   }
+
+  if(codeEl) codeEl.textContent = code;
 
   navigator.clipboard.writeText(code).catch(()=>{});
   toast('Code copied and issued! ✅', 'ok');
@@ -3521,9 +3561,21 @@ async function verifyCode(){
   const val = (document.getElementById('verify-input')?.value || '').trim().toUpperCase();
   const res = document.getElementById('verify-result');
 
+  if(!res){
+    console.error('verify-result element not found');
+    return;
+  }
+
   if(!val){
     res.className = 'verify-result invalid';
     res.textContent = '❌ Please enter a code.';
+    return;
+  }
+
+  const restaurantId = await getCurrentRestaurantId();
+  if(!restaurantId){
+    res.className = 'verify-result invalid';
+    res.textContent = '❌ Restaurant not found.';
     return;
   }
 
@@ -3531,12 +3583,13 @@ async function verifyCode(){
     .from('redemptions')
     .select('*')
     .eq('code', val)
+    .eq('restaurant_id', restaurantId)
     .single();
 
   if(error || !data){
     console.error('Verify lookup error:', error);
     res.className = 'verify-result invalid';
-    res.textContent = '❌ Code not found.';
+    res.textContent = '❌ Code not found for this restaurant.';
     return;
   }
 
@@ -3552,13 +3605,21 @@ async function verifyCode(){
     return;
   }
 
+  if(data.expires_at && new Date(data.expires_at) < new Date()){
+    res.className = 'verify-result invalid';
+    res.textContent = '❌ Code expired.';
+    return;
+  }
+
   const { error: updateError } = await supabaseClient
     .from('redemptions')
     .update({
       status: 'redeemed',
       redeemed_at: new Date().toISOString()
     })
-    .eq('id', data.id);
+    .eq('id', data.id)
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'issued');
 
   if(updateError){
     console.error('Verify update error:', updateError);
@@ -3569,8 +3630,9 @@ async function verifyCode(){
 
   res.className = 'verify-result valid';
   res.innerHTML = `✅ <strong>Valid!</strong> Code accepted and marked as redeemed.`;
-   loadRestaurantRedemptions();
-   loadRestaurantOffers();
+
+  await loadRestaurantRedemptions();
+  await loadRestaurantOffers();
 }
 async function initManager(){
   await loadManagerStats();
@@ -3933,8 +3995,9 @@ function banUserRow(btn,name){
     return;
   }
 
-  toast('Reservation request sent! ✅', 'ok');
-      loadCustomerReservations();
+    toast('Reservation request sent! ✅', 'ok');
+  await loadCustomerReservations();
+}
 }
   async function managerToggleUserBan(userId, shouldBan){
   const { error } = await supabaseClient
@@ -3958,6 +4021,8 @@ function banUserRow(btn,name){
     DEALS = [];
     currentEditingOfferId = null;
     _modalDeal = null;
+    clearInterval(_timerInterval);
+    _timerInterval = null;
   }
 });
    async function managerViewUser(userId){
@@ -4061,7 +4126,13 @@ function toast(msg,type='ok'){
 }
 
 /* ─── KEYBOARD ─── */
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Escape') return;
+
+  closeModal();
+  closeManagerOfferModal?.();
+  closeManagerRestaurantModal?.();
+});
 
 /* ─── BOOT ─── */
 window.addEventListener('DOMContentLoaded', async () => {
