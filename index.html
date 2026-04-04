@@ -1139,12 +1139,7 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
       </div>
     </aside>
     <main class="rdash-main">
-       <div class="pane on" id="pane-r-overview">
-  <div class="rdash-header">
-    <h1>Restaurant Dashboard</h1>
-    <p>Welcome to your restaurant dashboard.</p>
-  </div>
-</div>
+       
       <!-- OVERVIEW -->
       <div class="pane on" id="pane-r-overview">
         <div class="rdash-header"><h1>Dashboard</h1><p>Good morning — here's how Burgerlicious is performing.</p></div>
@@ -1310,24 +1305,13 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
         </div>
       </div>
       <!-- RESERVATIONS -->
+      <!-- RESERVATIONS -->
       <div class="pane" id="pane-r-reservations">
-  <div class="rdash-header"><h1>Reservations</h1><p>Manage incoming table requests from TableDeal members.</p></div>
-  <div class="real-reservation-list" style="display:flex;flex-direction:column;gap:12px"></div>
-</div>
-        <div style="display:flex;flex-direction:column;gap:12px">
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-            <div><div style="font-size:.95rem;font-weight:600;color:var(--text);margin-bottom:3px">Karim Hassan — Table for 2</div><div style="font-size:.8rem;color:var(--text-muted)">📅 Today, 8:00 PM · Requested via TableDeal</div></div>
-            <div style="display:flex;gap:8px;align-items:center"><span class="badge-yellow">Pending</span><button class="btn-gold" style="padding:7px 16px;font-size:.8rem" onclick="toast('Reservation confirmed! ✅','ok')">Confirm</button></div>
-          </div>
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-            <div><div style="font-size:.95rem;font-weight:600;color:var(--text);margin-bottom:3px">Rania Khalil — Table for 4</div><div style="font-size:.8rem;color:var(--text-muted)">📅 Tomorrow, 7:30 PM · "Window seat if possible"</div></div>
-            <div style="display:flex;gap:8px;align-items:center"><span class="badge-green">Confirmed</span><button class="btn-danger" onclick="toast('Reservation cancelled','err')">Cancel</button></div>
-          </div>
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-            <div><div style="font-size:.95rem;font-weight:600;color:var(--text);margin-bottom:3px">Elie Matta — Table for 3</div><div style="font-size:.8rem;color:var(--text-muted)">📅 Fri 27 Jun, 1:30 PM · Using "30% Off Lunch"</div></div>
-            <div style="display:flex;gap:8px;align-items:center"><span class="badge-green">Confirmed</span><button class="btn-ghost">Details</button></div>
-          </div>
+        <div class="rdash-header">
+          <h1>Reservations</h1>
+          <p>Manage incoming table requests from TableDeal members.</p>
         </div>
+        <div class="real-reservation-list" style="display:flex;flex-direction:column;gap:12px"></div>
       </div>
       <!-- ANALYTICS -->
       <div class="pane" id="pane-r-analytics">
