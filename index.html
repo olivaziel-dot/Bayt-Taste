@@ -1976,24 +1976,33 @@ function previewOfferImage(event){
 async function uploadOfferImage(file){
   if(!file) return null;
 
-  const fileExt = file.name.split('.').pop();
-  const fileName = `offer-${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+  try{
+    const compressed = await compressImage(file, 1000, 0.7); // kleiner als Restaurant
 
-  const { error } = await supabaseClient.storage
-    .from('restaurant-images')
-    .upload(fileName, file);
+    const fileExt = 'jpg';
+    const fileName = `offer-${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
 
-  if(error){
-    console.error('Image upload error:', error);
-    toast('Image upload failed', 'err');
+    const { error } = await supabaseClient.storage
+      .from('offer-images')
+      .upload(fileName, compressed);
+
+    if(error){
+      console.error('Offer image upload error:', error);
+      toast(error.message || 'Image upload failed', 'err');
+      return null;
+    }
+
+    const { data } = supabaseClient.storage
+      .from('offer-images')
+      .getPublicUrl(fileName);
+
+    return data?.publicUrl || null;
+
+  }catch(err){
+    console.error('Offer image compression error:', err);
+    toast('Image processing failed', 'err');
     return null;
   }
-
-  const { data } = supabaseClient.storage
-    .from('restaurant-images')
-    .getPublicUrl(fileName);
-
-  return data?.publicUrl || null;
 }
 
 /* ─── LOGIN HANDLER ─── */
