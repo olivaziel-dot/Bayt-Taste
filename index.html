@@ -2518,7 +2518,7 @@ function pane(id, linkEl){
   document.querySelectorAll('#page-restaurant .sb-link').forEach(l => l.classList.remove('on'));
   if(linkEl) linkEl.classList.add('on');
 }
-  async function loadManagerOffers(){
+async function loadManagerOffers(){
   const body = document.getElementById('manager-offers-body');
 
   if(!body){
@@ -2621,20 +2621,20 @@ function pane(id, linkEl){
       restaurantInfo += `<br/><span style="font-size:.72rem;color:#e74c3c">Restaurant suspended</span>`;
     }
 
-   let actionHtml = '';
-if(effectivelyInactive){
-  actionHtml = `
-    <button class="btn-ghost" onclick="managerViewOffer('${o.id}')">View</button>
-    <span style="font-size:.78rem;color:var(--text-dim)">Inactive by admin action</span>
-  `;
-} else {
-  actionHtml = `
-    <button class="btn-ghost" onclick="managerViewOffer('${o.id}')">View</button>
-    <button class="btn-ghost" onclick="managerToggleOfferStatus('${o.id}','${o.status === 'active' ? 'paused' : 'active'}')">
-      ${o.status === 'active' ? 'Pause' : 'Activate'}
-    </button>
-  `;
-}
+    let actionHtml = '';
+    if(effectivelyInactive){
+      actionHtml = `
+        <button class="btn-ghost" onclick="managerViewOffer('${o.id}')">View</button>
+        <span style="font-size:.78rem;color:var(--text-dim)">Inactive by admin action</span>
+      `;
+    } else {
+      actionHtml = `
+        <button class="btn-ghost" onclick="managerViewOffer('${o.id}')">View</button>
+        <button class="btn-ghost" onclick="managerToggleOfferStatus('${o.id}','${o.status === 'active' ? 'paused' : 'active'}')">
+          ${o.status === 'active' ? 'Pause' : 'Activate'}
+        </button>
+      `;
+    }
 
     return `
       <tr>
@@ -2651,8 +2651,8 @@ if(effectivelyInactive){
     `;
   }).join('');
 }
-   
-   async function loadManagerBannedUsers(){
+
+async function loadManagerBannedUsers(){
   const body = document.getElementById('manager-banned-users-body');
   if(!body) return;
 
@@ -2693,13 +2693,14 @@ if(effectivelyInactive){
     </tr>
   `).join('');
 }
-   async function uploadOfferImage(file){
+
+async function uploadOfferImage(file){
   if(!file) return null;
 
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+  const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
 
-  const { data, error } = await supabaseClient.storage
+  const { error } = await supabaseClient.storage
     .from('offer-images')
     .upload(fileName, file);
 
@@ -2714,9 +2715,10 @@ if(effectivelyInactive){
     .from('offer-images')
     .getPublicUrl(fileName);
 
-  return publicUrlData.publicUrl;
+  return publicUrlData?.publicUrl || null;
 }
-   async function managerBanUserByEmail(){
+
+async function managerBanUserByEmail(){
   const email = document.getElementById('manager-ban-email')?.value?.trim().toLowerCase();
 
   if(!email){
@@ -2748,12 +2750,15 @@ if(effectivelyInactive){
   }
 
   toast('User banned', 'ok');
-  document.getElementById('manager-ban-email').value = '';
+
+  const emailInput = document.getElementById('manager-ban-email');
+  if(emailInput) emailInput.value = '';
 
   await loadManagerUsers();
   await loadManagerBannedUsers();
 }
-   async function managerToggleOfferStatus(offerId, newStatus){
+
+async function managerToggleOfferStatus(offerId, newStatus){
   const { data, error } = await supabaseClient
     .from('offers')
     .update({ status: newStatus })
