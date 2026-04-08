@@ -2,32 +2,7 @@
 <html lang="en">
 <head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-   <script>
-  let googlePlacesReady = false;
 
-  function initGooglePlacesAutocomplete(){
-    if(!window.google?.maps?.places) return;
-
-    const input = document.getElementById('restaurant-profile-location');
-    if(!input) return;
-
-    const autocomplete = new google.maps.places.Autocomplete(input, {
-      types: ['address'],
-      componentRestrictions: { country: 'lb' },
-      fields: ['formatted_address', 'geometry', 'name']
-    });
-
-    autocomplete.addListener('place_changed', () => {
-      const place = autocomplete.getPlace();
-      if(place?.formatted_address){
-        input.value = place.formatted_address;
-      }
-    });
-
-    googlePlacesReady = true;
-  }
-</script>
-<script async src="https://maps.googleapis.com/maps/api/js?key=DEIN_GOOGLE_API_KEY&libraries=places&callback=initGooglePlacesAutocomplete"></script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>TableDeal Lebanon – Exclusive Restaurant Offers</title>
@@ -394,7 +369,7 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
 .f-chip:hover,.f-chip.on{background:rgba(212,168,67,.15);border-color:var(--gold);color:var(--gold)}
    .price-tier-picker{
   display:grid;
-  grid-template-columns:repeat(4,1fr);
+  grid-template-columns:repeat(3,1fr);
   gap:10px;
   margin-top:8px;
 }
@@ -1544,27 +1519,22 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
 
     <input type="hidden" id="restaurant-profile-avg-price" value="1"/>
 
-    <div class="price-tier-picker">
-      <button type="button" class="price-tier-btn on" data-tier="1" onclick="selectPriceTier(1)">
-        <div class="price-tier-symbols"><strong>$</strong><span>$$$</span></div>
-        <div class="price-tier-note">$0–9</div>
-      </button>
+<div class="price-tier-picker">
+  <button type="button" class="price-tier-btn on" data-tier="1" onclick="selectPriceTier(1)">
+    <div class="price-tier-symbols"><strong>$</strong><span>$$</span></div>
+    <div class="price-tier-note">$0–9</div>
+  </button>
 
-      <button type="button" class="price-tier-btn" data-tier="2" onclick="selectPriceTier(2)">
-        <div class="price-tier-symbols"><strong>$$</strong><span>$$</span></div>
-        <div class="price-tier-note">$10–99</div>
-      </button>
+  <button type="button" class="price-tier-btn" data-tier="2" onclick="selectPriceTier(2)">
+    <div class="price-tier-symbols"><strong>$$</strong><span>$</span></div>
+    <div class="price-tier-note">$10–99</div>
+  </button>
 
-      <button type="button" class="price-tier-btn" data-tier="3" onclick="selectPriceTier(3)">
-        <div class="price-tier-symbols"><strong>$$$</strong><span>$</span></div>
-        <div class="price-tier-note">$100–999</div>
-      </button>
-
-      <button type="button" class="price-tier-btn" data-tier="4" onclick="selectPriceTier(4)">
-        <div class="price-tier-symbols"><strong>$$$$</strong><span></span></div>
-        <div class="price-tier-note">$1000+</div>
-      </button>
-    </div>
+  <button type="button" class="price-tier-btn" data-tier="3" onclick="selectPriceTier(3)">
+    <div class="price-tier-symbols"><strong>$$$</strong><span></span></div>
+    <div class="price-tier-note">$100+</div>
+  </button>
+</div>
   </div>
 
   <div class="form-group">
@@ -2499,19 +2469,17 @@ function normalizePriceTier(value){
   const num = Number(value);
 
   if(!value || Number.isNaN(num)) return 1;
-  if(num <= 4) return num;      // already saved as tier
+  if(num <= 3) return num;      // already saved as tier
   if(num <= 9) return 1;
   if(num <= 99) return 2;
-  if(num <= 999) return 3;
-  return 4;
+  return 3;
 }
 
 function priceTierLabel(value){
   const tier = normalizePriceTier(value);
   if(tier === 1) return '$';
   if(tier === 2) return '$$';
-  if(tier === 3) return '$$$';
-  return '$$$$';
+  return '$$$';
 }
 
 function selectPriceTier(tier){
@@ -4416,10 +4384,6 @@ async function loadRestaurantProfile(){
 
     setRestaurantCoverPreview(restaurant.cover_image_url || '');
   setRestaurantLogoPreview(restaurant.logo_image_url || '');
-
-  if(!googlePlacesReady && window.google?.maps?.places){
-    initGooglePlacesAutocomplete();
-  }
 }
 
 async function saveRestaurantProfile(){
