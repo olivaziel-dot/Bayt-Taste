@@ -2087,6 +2087,20 @@ async function doLogin(){
     console.error('Auth user not found:', authError);
     return null;
   }
+
+  const { data: restaurant, error } = await supabaseClient
+    .from('restaurants')
+    .select('*')
+    .eq('owner_id', authData.user.id)
+    .single();
+
+  if(error){
+    console.error('Error loading restaurant:', error);
+    return null;
+  }
+
+  return restaurant;
+}
 async function compressImage(file, maxWidth = 1200, quality = 0.72){
   return new Promise((resolve, reject) => {
     if(!file){
