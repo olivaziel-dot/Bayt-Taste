@@ -1405,21 +1405,35 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
       <div class="pane" id="pane-r-analytics">
         <div class="rdash-header"><h1>Analytics</h1><p>Detailed performance insights.</p></div>
         <div class="stat-row">
-          <div class="stat-card"><div class="sc-label">Profile Views (30d)</div><div class="sc-val">4,230</div><div class="sc-change up">↑ 18%</div></div>
-          <div class="stat-card"><div class="sc-label">Offer Clicks</div><div class="sc-val">986</div><div class="sc-change up">↑ 22%</div></div>
-          <div class="stat-card"><div class="sc-label">Conversion Rate</div><div class="sc-val">13.6%</div><div class="sc-change up">↑ 2.1%</div></div>
-          <div class="stat-card"><div class="sc-label">Est. Revenue Impact</div><div class="sc-val">$3,400</div><div class="sc-change up">↑ 9%</div></div>
-        </div>
+  <div class="stat-card">
+    <div class="sc-label">Profile Views (30D)</div>
+    <div class="sc-val" id="analytics-profile-views">—</div>
+    <div class="sc-change up" id="analytics-profile-views-sub">Last 30 days</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="sc-label">Offer Clicks</div>
+    <div class="sc-val" id="analytics-offer-clicks">—</div>
+    <div class="sc-change up" id="analytics-offer-clicks-sub">All tracked clicks</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="sc-label">Conversion Rate</div>
+    <div class="sc-val" id="analytics-conversion-rate">—</div>
+    <div class="sc-change up" id="analytics-conversion-rate-sub">Redemptions / clicks</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="sc-label">Est. Revenue Impact</div>
+    <div class="sc-val" id="analytics-revenue-impact">—</div>
+    <div class="sc-change up" id="analytics-revenue-impact-sub">Estimated from redemptions</div>
+  </div>
+</div>
         <div class="panel">
           <div class="panel-head">Monthly Redemptions — Last 6 Months</div>
-          <div class="bar-chart-wrap" style="height:160px"><div class="bar-chart" style="height:130px;justify-content:space-around;padding:0 20px">
-            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:50%"></div><span style="font-size:.68rem;color:var(--text-muted)">Jan</span></div>
-            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:65%"></div><span style="font-size:.68rem;color:var(--text-muted)">Feb</span></div>
-            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:80%"></div><span style="font-size:.68rem;color:var(--text-muted)">Mar</span></div>
-            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:60%"></div><span style="font-size:.68rem;color:var(--text-muted)">Apr</span></div>
-            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:90%"></div><span style="font-size:.68rem;color:var(--text-muted)">May</span></div>
-            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div class="bar" style="width:100%;height:100%"></div><span style="font-size:.68rem;color:var(--text-muted)">Jun</span></div>
-          </div></div>
+          <div class="bar-chart-wrap">
+  <div class="bar-chart" id="analytics-redemptions-chart"></div>
+</div>
         </div>
       </div>
       <!-- PROFILE -->
@@ -4494,6 +4508,7 @@ async function saveRestaurantProfile(){
 
   await loadRestaurantProfile();
   await loadCurrentRestaurant();
+  await loadRestaurantAnalytics();
 
   toast('Profile saved! 🎉', 'ok');
 }
@@ -5284,7 +5299,164 @@ document.addEventListener('keydown', e => {
   closeManagerRestaurantModal();
   closeRestaurantProfileModal();
 });
+function formatMoney(num){
+  const n = Number(num || 0);
+  return '$' + n.toLocaleString();
+}
 
+function formatPercent(num){
+  const n = Number(num || 0);
+  return `${n.toFixed(1)}%`;
+}
+
+function getLast6Months(){
+  const out = [];
+  const now = new Date();
+
+  for(let i = 5; i >= 0; i--){
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    out.push({
+      key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+      label: d.toLocaleString('en-US', { month: 'short' })
+    });
+  }
+
+  return out;
+}
+
+function renderAnalyticsChart(monthCounts){
+  const chart = document.getElementById('analytics-redemptions-chart');
+  if(!chart) return;
+
+  const months = getLast6Months();
+  const maxVal = Math.max(...months.map(m => monthCounts[m.key] || 0), 1);
+
+  chart.innerHTML = months.map(m => {
+    const value = monthCounts[m.key] || 0;
+    const h = Math.max((value / maxVal) * 100, value > 0 ? 10 : 4);
+
+    return `
+      <div class="bar" style="height:${h}%">
+        <span class="bar-lbl">${m.label}</span>
+        <span style="position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:.68rem;color:var(--text-soft)">
+          ${value}
+        </span>
+      </div>
+    `;
+  }).join('');
+}
+
+async function loadRestaurantAnalytics(){
+  const restaurant = await getCurrentRestaurant();
+
+  if(!restaurant){
+    console.error('Analytics: restaurant not found');
+    return;
+  }
+
+  const profileViewsEl = document.getElementById('analytics-profile-views');
+  const offerClicksEl = document.getElementById('analytics-offer-clicks');
+  const conversionRateEl = document.getElementById('analytics-conversion-rate');
+  const revenueImpactEl = document.getElementById('analytics-revenue-impact');
+
+  if(profileViewsEl) profileViewsEl.textContent = '0';
+  if(offerClicksEl) offerClicksEl.textContent = '0';
+  if(conversionRateEl) conversionRateEl.textContent = '0.0%';
+  if(revenueImpactEl) revenueImpactEl.textContent = '$0';
+
+  const { data: offers, error: offersError } = await supabaseClient
+    .from('offers')
+    .select('id, title, original_price')
+    .eq('restaurant_id', restaurant.id);
+
+  if(offersError){
+    console.error('Analytics offers error:', offersError);
+    return;
+  }
+
+  const offerIds = (offers || []).map(o => o.id);
+
+  let redemptions = [];
+  if(offerIds.length){
+    const { data, error } = await supabaseClient
+      .from('coupon_codes')
+      .select('id, offer_id, status, created_at, redeemed_at')
+      .in('offer_id', offerIds);
+
+    if(error){
+      console.error('Analytics coupon_codes error:', error);
+    } else {
+      redemptions = data || [];
+    }
+  }
+
+  let clicks = [];
+  if(offerIds.length){
+    const { data, error } = await supabaseClient
+      .from('offer_clicks')
+      .select('id, offer_id, created_at')
+      .in('offer_id', offerIds);
+
+    if(error){
+      console.warn('offer_clicks table missing or unreadable:', error);
+    } else {
+      clicks = data || [];
+    }
+  }
+
+  let views = [];
+  const { data: viewData, error: viewsError } = await supabaseClient
+    .from('restaurant_profile_views')
+    .select('id, created_at')
+    .eq('restaurant_id', restaurant.id);
+
+  if(viewsError){
+    console.warn('restaurant_profile_views table missing or unreadable:', viewsError);
+  } else {
+    views = viewData || [];
+  }
+
+  const now = new Date();
+  const last30 = new Date();
+  last30.setDate(now.getDate() - 30);
+
+  const profileViews30d = views.filter(v => new Date(v.created_at) >= last30).length;
+  const offerClicksCount = clicks.length;
+  const redeemedCount = redemptions.filter(r => String(r.status || '').toLowerCase() === 'redeemed').length;
+
+  let estimatedRevenue = 0;
+  const offerMap = new Map((offers || []).map(o => [o.id, o]));
+  redemptions.forEach(r => {
+    if(String(r.status || '').toLowerCase() !== 'redeemed') return;
+    const offer = offerMap.get(r.offer_id);
+    const price = Number(offer?.original_price || 0);
+    estimatedRevenue += price;
+  });
+
+  const conversionRate = offerClicksCount > 0
+    ? (redeemedCount / offerClicksCount) * 100
+    : 0;
+
+  if(profileViewsEl) profileViewsEl.textContent = profileViews30d.toLocaleString();
+  if(offerClicksEl) offerClicksEl.textContent = offerClicksCount.toLocaleString();
+  if(conversionRateEl) conversionRateEl.textContent = formatPercent(conversionRate);
+  if(revenueImpactEl) revenueImpactEl.textContent = formatMoney(estimatedRevenue);
+
+  const monthCounts = {};
+  getLast6Months().forEach(m => monthCounts[m.key] = 0);
+
+  redemptions.forEach(r => {
+    if(String(r.status || '').toLowerCase() !== 'redeemed') return;
+
+    const dt = new Date(r.redeemed_at || r.created_at);
+    if(Number.isNaN(dt.getTime())) return;
+
+    const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+    if(key in monthCounts) monthCounts[key]++;
+  });
+
+  renderAnalyticsChart(monthCounts);
+}
 window.addEventListener('DOMContentLoaded', async () => {
   try {
     if(typeof buildHours === 'function'){
