@@ -4514,10 +4514,12 @@ async function saveRestaurantProfile(){
     return;
   }
 
-  const rows = [];
+  const rowsMap = new Map();
 
   document.querySelectorAll('.hrs-row').forEach(row => {
-    const day = row.dataset.day;
+    const day = String(row.dataset.day || '').trim();
+    if(!day) return;
+
     const toggle = row.querySelector('input[type="checkbox"]');
     const timeInputs = row.querySelectorAll('input[type="time"]');
 
@@ -4525,33 +4527,31 @@ async function saveRestaurantProfile(){
     const openTime = timeInputs[0]?.value || null;
     const closeTime = timeInputs[1]?.value || null;
 
-    rows.push({
+    rowsMap.set(day, {
       restaurant_id: restaurant.id,
-      day: String(day).trim(),
+      day,
       is_open: isOpen,
       open_time: isOpen ? openTime : null,
       close_time: isOpen ? closeTime : null
     });
   });
 
-  const { error: insertError } = await supabaseClient
-    .from('restaurant_hours')
-    .insert(rows);
+  const rows = Array.from(rowsMap.values());
 
-  if(insertError){
-    console.error('Insert restaurant hours error:', insertError);
-    toast(insertError.message || 'Could not save opening hours', 'err');
+  if(!rows.length){
+    toast('No opening hours found to save', 'err');
     return;
   }
 
-  const { error: restaurantUpdateError } = await supabaseClient
-    .from('restaurants')
-    .update({ hours_note: note })
-    .eq('id', restaurant.id);
+  const { error } = await supabaseClient
+    .from('restaurant_hours')
+    .upsert(rows, {
+      onConflict: 'restaurant_id,day'
+    });
 
-  if(restaurantUpdateError){
-    console.error('Restaurant hours note update error:', restaurantUpdateError);
-    toast(restaurantUpdateError.message || 'Hours saved, but note failed', 'err');
+  if(error){
+    console.error('Save restaurant hours error:', error);
+    toast(error.message || 'Could not save opening hours', 'err');
     return;
   }
 
