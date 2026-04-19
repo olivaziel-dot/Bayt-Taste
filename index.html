@@ -4534,19 +4534,6 @@ async function saveRestaurantProfile(){
     });
   });
 
-  const note = document.getElementById('hours-note')?.value?.trim() || null;
-
-  const { error: deleteError } = await supabaseClient
-    .from('restaurant_hours')
-    .delete()
-    .eq('restaurant_id', restaurant.id);
-
-  if(deleteError){
-    console.error('Delete old restaurant hours error:', deleteError);
-    toast(deleteError.message || 'Could not clear old opening hours', 'err');
-    return;
-  }
-
   const { error: insertError } = await supabaseClient
     .from('restaurant_hours')
     .insert(rows);
