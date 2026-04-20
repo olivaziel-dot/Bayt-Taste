@@ -1232,12 +1232,18 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
       <div class="form-group">
         <label>Details</label>
         <textarea
-          class="input-field"
-          id="report-issue-reason"
-          rows="4"
-          placeholder="Describe the problem..."
-          style="resize:vertical"
-        ></textarea>
+  class="input-field"
+  id="report-issue-reason"
+  rows="4"
+  maxlength="130"
+  placeholder="Describe the problem (max 130 characters)..."
+  style="resize:vertical"
+  oninput="updateReportCharCount()"
+></textarea>
+
+<div id="report-char-count" style="font-size:.75rem;color:var(--text-muted);margin-top:4px">
+  0 / 130
+</div>
       </div>
 
       <button class="btn-gold" style="width:100%;padding:13px" onclick="submitIssueReport()">Send Report</button>
@@ -4788,6 +4794,13 @@ function closeRestaurantProfileModal(){
   const overlay = document.getElementById('report-issue-overlay');
   if(overlay) overlay.classList.remove('open');
 }
+   function updateReportCharCount(){
+  const el = document.getElementById('report-issue-reason');
+  const counter = document.getElementById('report-char-count');
+  if(!el || !counter) return;
+
+  counter.textContent = `${el.value.length} / 130`;
+}
 
 async function submitIssueReport(){
   if(!_modalDeal){
@@ -4835,7 +4848,10 @@ async function submitIssueReport(){
   const overlay = document.getElementById('report-issue-overlay');
 
   if(issueTypeEl) issueTypeEl.value = 'wrong_information';
-  if(reasonEl) reasonEl.value = '';
+  if(reasonEl){
+  reasonEl.value = '';
+  updateReportCharCount();
+}
   if(overlay) overlay.classList.add('open');
 }
    async function loadCurrentRestaurant(){
