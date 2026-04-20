@@ -1209,6 +1209,41 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
 <button class="btn-gold" style="width:100%;padding:13px" onclick="openDirections()">📍 Get Directions</button>
 <button class="btn-outline" style="width:100%;padding:13px;margin-top:10px" onclick="openReportIssue()">⚠ Report an Issue</button>
     </div>
+     <div class="overlay" id="report-issue-overlay" onclick="if(event.target===this)closeReportIssueModal()">
+  <div class="modal" style="max-width:560px">
+    <button class="modal-x" onclick="closeReportIssueModal()">✕</button>
+    <div class="modal-body">
+      <div class="modal-rest-tag">Issue Report</div>
+      <h2 class="modal-title">Report a Problem</h2>
+      <p class="modal-desc">Tell us what went wrong with this offer or restaurant.</p>
+
+      <div class="form-group">
+        <label>Issue Type</label>
+        <select class="input-field" id="report-issue-type">
+          <option value="wrong_address">Wrong address</option>
+          <option value="wrong_hours">Wrong opening hours</option>
+          <option value="offer_not_accepted">Restaurant did not accept the offer</option>
+          <option value="wrong_information">Wrong information</option>
+          <option value="staff_issue">Staff issue</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Details</label>
+        <textarea
+          class="input-field"
+          id="report-issue-reason"
+          rows="4"
+          placeholder="Describe the problem..."
+          style="resize:vertical"
+        ></textarea>
+      </div>
+
+      <button class="btn-gold" style="width:100%;padding:13px" onclick="submitIssueReport()">Send Report</button>
+    </div>
+  </div>
+</div>
   </div>
 </div>
 </div><!-- /page-customer -->
@@ -2731,7 +2766,7 @@ async function submitRestaurantReview(){
 
   feed.innerHTML = `<div style="color:var(--text-muted)">Loading activity...</div>`;
 
-  const [reservationsRes, redemptionsRes, offersRes] = await Promise.all([
+  const [reservationsRes, redemptionsRes, offersRes, reportsRes, restaurantsRes, profilesRes] = await Promise.all([
     supabaseClient
       .from('reservations')
       .select('*')
@@ -2748,18 +2783,37 @@ async function submitRestaurantReview(){
       .from('offers')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(5)
+      .limit(5),
+
+    supabaseClient
+      .from('offer_reports')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(10),
+
+    supabaseClient
+      .from('restaurants')
+      .select('id,name'),
+
+    supabaseClient
+      .from('profiles')
+      .select('id,name,email')
   ]);
 
-  if(reservationsRes.error){
-    console.error('Manager activity reservations error:', reservationsRes.error);
-  }
-  if(redemptionsRes.error){
-    console.error('Manager activity redemptions error:', redemptionsRes.error);
-  }
-  if(offersRes.error){
-    console.error('Manager activity offers error:', offersRes.error);
-  }
+  if(reservationsRes.error) console.error('Manager activity reservations error:', reservationsRes.error);
+  if(redemptionsRes.error) console.error('Manager activity redemptions error:', redemptionsRes.error);
+  if(offersRes.error) console.error('Manager activity offers error:', offersRes.error);
+  if(reportsRes.error) console.error('Manager activity reports error:', reportsRes.error);
+
+  const restaurantMap = {};
+  (restaurantsRes.data || []).forEach(r => {
+    restaurantMap[r.id] = r;
+  });
+
+  const profileMap = {};
+  (profilesRes.data || []).forEach(p => {
+    profileMap[p.id] = p;
+  });
 
   const activities = [];
 
@@ -2767,6 +2821,7 @@ async function submitRestaurantReview(){
     activities.push({
       type: 'reservation',
       created_at: r.created_at,
+      icon: '📅',
       text: `New reservation for ${r.party_size} people on ${r.reserved_date} at ${r.reserved_time}`
     });
   });
@@ -2775,6 +2830,7 @@ async function submitRestaurantReview(){
     activities.push({
       type: 'redemption',
       created_at: r.created_at,
+      icon: '🎟️',
       text: `Coupon code ${r.code} was issued with status ${r.status}`
     });
   });
@@ -2783,7 +2839,20 @@ async function submitRestaurantReview(){
     activities.push({
       type: 'offer',
       created_at: o.created_at,
+      icon: '🏷️',
       text: `Offer created: ${o.title}`
+    });
+  });
+
+  (reportsRes.data || []).forEach(rep => {
+    const restaurantName = restaurantMap[rep.restaurant_id]?.name || 'Unknown restaurant';
+    const userName = profileMap[rep.reporter_user_id]?.name || profileMap[rep.reporter_user_id]?.email || 'A user';
+
+    activities.push({
+      type: 'report',
+      created_at: rep.created_at,
+      icon: '⚠️',
+      text: `${userName} reported ${restaurantName}: ${rep.issue_type}${rep.reason ? ' — ' + rep.reason : ''}`
     });
   });
 
@@ -2796,19 +2865,17 @@ async function submitRestaurantReview(){
     return;
   }
 
-  feed.innerHTML = latest.map(a => `
+  feed.innerHTML = latest.map(item => `
     <div class="activity-item">
-      <div class="act-icon">
-        ${a.type === 'reservation' ? '📅' : a.type === 'redemption' ? '🎟️' : '🏷️'}
-      </div>
-      <div>
-        <div class="act-text">${a.text}</div>
-        <div class="act-time">${new Date(a.created_at).toLocaleString()}</div>
+      <div class="act-icon">${item.icon}</div>
+      <div class="act-text">
+        <strong>${item.type.charAt(0).toUpperCase() + item.type.slice(1)}</strong><br/>
+        ${item.text}
+        <div class="act-time">${new Date(item.created_at).toLocaleString()}</div>
       </div>
     </div>
   `).join('');
 }
-
 /* ─── RESTAURANT PANE SWITCHER ─── */
 function pane(id, linkEl){
   document.querySelectorAll('#page-restaurant .pane').forEach(p => p.classList.remove('on'));
@@ -4717,7 +4784,12 @@ function closeRestaurantProfileModal(){
   const overlay = document.getElementById('restaurant-profile-overlay');
   if(overlay) overlay.classList.remove('open');
 }
-   async function openReportIssue(){
+   function closeReportIssueModal(){
+  const overlay = document.getElementById('report-issue-overlay');
+  if(overlay) overlay.classList.remove('open');
+}
+
+async function submitIssueReport(){
   if(!_modalDeal){
     toast('No deal selected', 'err');
     return;
@@ -4730,11 +4802,8 @@ function closeRestaurantProfileModal(){
     return;
   }
 
-  const reason = prompt('Describe the issue (wrong hours, coupon not accepted, wrong info, etc.)');
-
-  if(!reason || !reason.trim()){
-    return;
-  }
+  const issueType = document.getElementById('report-issue-type')?.value || 'other';
+  const reason = document.getElementById('report-issue-reason')?.value?.trim() || '';
 
   const { error } = await supabaseClient
     .from('offer_reports')
@@ -4742,7 +4811,8 @@ function closeRestaurantProfileModal(){
       offer_id: _modalDeal.id || null,
       restaurant_id: _modalDeal.restaurant_id || null,
       reporter_user_id: authData.user.id,
-      reason: reason.trim()
+      issue_type: issueType,
+      reason
     });
 
   if(error){
@@ -4751,7 +4821,22 @@ function closeRestaurantProfileModal(){
     return;
   }
 
+  closeReportIssueModal();
   toast('Report submitted. Thank you! ✅', 'ok');
+}
+   function openReportIssue(){
+  if(!_modalDeal){
+    toast('No deal selected', 'err');
+    return;
+  }
+
+  const issueTypeEl = document.getElementById('report-issue-type');
+  const reasonEl = document.getElementById('report-issue-reason');
+  const overlay = document.getElementById('report-issue-overlay');
+
+  if(issueTypeEl) issueTypeEl.value = 'wrong_information';
+  if(reasonEl) reasonEl.value = '';
+  if(overlay) overlay.classList.add('open');
 }
    async function loadCurrentRestaurant(){
   const { data: authData, error: authError } = await supabaseClient.auth.getUser();
