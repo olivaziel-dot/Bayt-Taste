@@ -1247,11 +1247,30 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
       <div class="pane on" id="pane-r-overview">
         <div class="rdash-header"><h1>Dashboard</h1><p>Good morning — here's how Burgerlicious is performing.</p></div>
         <div class="stat-row">
-          <div class="stat-card"><div class="sc-label">Views This Month</div><div class="sc-val">1,842</div><div class="sc-change up">↑ 12% vs last month</div></div>
-          <div class="stat-card"><div class="sc-label">Deals Redeemed</div><div class="sc-val">134</div><div class="sc-change up">↑ 8%</div></div>
-          <div class="stat-card"><div class="sc-label">New Followers</div><div class="sc-val">67</div><div class="sc-change up">↑ 23%</div></div>
-          <div class="stat-card"><div class="sc-label">Avg. Rating</div><div class="sc-val">4.6 ⭐</div><div class="sc-change up">Stable</div></div>
-        </div>
+  <div class="stat-card">
+    <div class="sc-label">Views This Month</div>
+    <div class="sc-val" id="overview-views">0</div>
+    <div class="sc-change up">Live data</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="sc-label">Deals Redeemed</div>
+    <div class="sc-val" id="overview-redeemed">0</div>
+    <div class="sc-change up">Real redemptions</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="sc-label">Favorites</div>
+    <div class="sc-val" id="overview-favorites">0</div>
+    <div class="sc-change up">Saved offers</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="sc-label">Avg. Rating</div>
+    <div class="sc-val" id="overview-rating">0.0 ⭐</div>
+    <div class="sc-change up">Customer reviews</div>
+  </div>
+</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
           <div class="panel">
             <div class="panel-head">Weekly Redemptions</div>
@@ -3367,11 +3386,12 @@ async function initRestaurant(){
   console.log('Restaurant init start for:', restaurant);
 
   await loadCurrentRestaurant();
-  await loadRestaurantProfile();
-  await loadRestaurantHours();
-  await loadRestaurantOffers();
-  await loadRestaurantReservations();
-  await loadRestaurantRedemptions();
+await loadRestaurantProfile();
+await loadRestaurantHours();
+await loadRestaurantOffers();
+await loadRestaurantReservations();
+await loadRestaurantRedemptions();
+await loadRestaurantOverviewStats();
 
   const defaultPane = document.getElementById('pane-r-overview');
   if(defaultPane){
@@ -3380,6 +3400,74 @@ async function initRestaurant(){
   }
 
   console.log('Restaurant init finished successfully');
+}
+   async function loadRestaurantOverviewStats(){
+  const restaurant = await getCurrentRestaurant();
+  if(!restaurant) return;
+
+  const viewsEl = document.getElementById('overview-views');
+  const redeemedEl = document.getElementById('overview-redeemed');
+  const favoritesEl = document.getElementById('overview-favorites');
+  const ratingEl = document.getElementById('overview-rating');
+
+  if(viewsEl) viewsEl.textContent = '0';
+
+  const { data: offers, error: offersError } = await supabaseClient
+    .from('offers')
+    .select('id')
+    .eq('restaurant_id', restaurant.id);
+
+  if(offersError){
+    console.error('Overview offers error:', offersError);
+    return;
+  }
+
+  const offerIds = (offers || []).map(o => o.id);
+
+  let redeemedCount = 0;
+  let favoritesCount = 0;
+
+  if(offerIds.length){
+    const { data: redemptions, error: redemptionsError } = await supabaseClient
+      .from('redemptions')
+      .select('id,status,offer_id')
+      .in('offer_id', offerIds);
+
+    if(!redemptionsError){
+      redeemedCount = (redemptions || []).filter(r => String(r.status || '').toLowerCase() === 'redeemed').length;
+    } else {
+      console.error('Overview redemptions error:', redemptionsError);
+    }
+
+    const { data: favs, error: favsError } = await supabaseClient
+      .from('offer_favorites')
+      .select('id,offer_id')
+      .in('offer_id', offerIds);
+
+    if(!favsError){
+      favoritesCount = (favs || []).length;
+    } else {
+      console.error('Overview favorites error:', favsError);
+    }
+  }
+
+  const { data: reviews, error: reviewsError } = await supabaseClient
+    .from('restaurant_reviews')
+    .select('rating')
+    .eq('restaurant_id', restaurant.id);
+
+  let avgRating = 0;
+
+  if(!reviewsError){
+    const vals = (reviews || []).map(r => Number(r.rating || 0)).filter(v => !Number.isNaN(v));
+    avgRating = vals.length ? vals.reduce((a,b) => a + b, 0) / vals.length : 0;
+  } else {
+    console.error('Overview reviews error:', reviewsError);
+  }
+
+  if(redeemedEl) redeemedEl.textContent = redeemedCount.toLocaleString();
+  if(favoritesEl) favoritesEl.textContent = favoritesCount.toLocaleString();
+  if(ratingEl) ratingEl.textContent = `${avgRating.toFixed(1)} ⭐`;
 }
    async function loadCustomerRedemptions(){
   const { data: authData, error: authError } = await supabaseClient.auth.getUser();
@@ -4130,46 +4218,57 @@ async function toggleFavorite(offerId){
   renderFavoriteDeals();
 }
 function renderDeals(){
-  const q=(document.getElementById('deal-search')?.value||'').toLowerCase();
-  const grid=document.getElementById('deals-grid');
+  const q = (document.getElementById('deal-search')?.value || '').toLowerCase();
+  const grid = document.getElementById('deals-grid');
   if(!grid) return;
-  let list=DEALS.filter(d=>{
-    const matchF=activeFilter==='all'||d.cat===activeFilter||d.district.toLowerCase().includes(activeFilter)||d.time===activeFilter;
-    const matchQ=!q||(d.title+d.restaurant+d.district).toLowerCase().includes(q);
-    return matchF&&matchQ;
+
+  let list = DEALS.filter(d => {
+    const matchF = activeFilter === 'all' || d.cat === activeFilter || d.district.toLowerCase().includes(activeFilter) || d.time === activeFilter;
+    const matchQ = !q || (d.title + d.restaurant + d.district).toLowerCase().includes(q);
+    return matchF && matchQ;
   });
+
   if(!list.length){
-    grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:60px 0;color:var(--text-muted)">No deals found. Try a different filter.</div>';
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px 0;color:var(--text-muted)">No deals found. Try a different filter.</div>';
     return;
   }
-  grid.innerHTML=list.map(d=>`
-    <div class="deal-card" onclick="openDeal('${d.id}')">
-      <div class="deal-img">
-        <img src="${d.img}" alt="" loading="lazy"/>
-        <div class="deal-disc">${d.disc}</div>
-        <div class="deal-cat">${d.cat}</div>
-      </div>
-      <div class="deal-body">
-        <div class="deal-rest">${d.restaurant} <span class="dist">${d.district}</span></div>
-        <div class="deal-title">${d.title}</div>
-        <div class="deal-desc">${d.desc.slice(0,80)}…</div>
-        <div class="deal-foot">
-          <div class="deal-prices"><span class="deal-orig">${d.orig}</span><span class="deal-new">${d.price}</span></div>
-          <button
-  class="heart-btn ${isSaved ? 'saved' : ''}"
-  onclick="event.stopPropagation(); toggleFavorite(${d.id})"
->
-  ${isSaved ? '♥' : '♡'}
-</button>
+
+  grid.innerHTML = list.map(d => {
+    const isSaved = _favoriteOfferIds.has(d.id);
+
+    return `
+      <div class="deal-card" onclick="openDeal('${d.id}')">
+        <div class="deal-img">
+          <img src="${d.img}" alt="" loading="lazy"/>
+          <div class="deal-disc">${d.disc}</div>
+          <div class="deal-cat">${d.cat}</div>
+        </div>
+        <div class="deal-body">
+          <div class="deal-rest">${d.restaurant} <span class="dist">${d.district}</span></div>
+          <div class="deal-title">${d.title}</div>
+          <div class="deal-desc">${d.desc.slice(0,80)}…</div>
+          <div class="deal-foot">
+            <div class="deal-prices">
+              <span class="deal-orig">${d.orig}</span>
+              <span class="deal-new">${d.price}</span>
+            </div>
+            <button
+              class="heart-btn ${isSaved ? 'saved' : ''}"
+              onclick="event.stopPropagation(); toggleFavorite('${d.id}')"
+            >
+              ${isSaved ? '♥' : '♡'}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 /* ─── DEAL MODAL + ANTI-CHEAT COUPON ─── */
    let currentEditingOfferId = null;
 let _modalDeal=null;
+let _favoriteOfferIds = new Set();
 let _timerInterval=null;
 const USER_ID='USR-K38';
 
