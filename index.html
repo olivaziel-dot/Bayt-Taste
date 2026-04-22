@@ -3624,16 +3624,18 @@ async function submitRedemptionReview(redemptionId, restaurantId){
   const comment = commentEl?.value?.trim() || '';
 
   const { error } = await supabaseClient
-    .from('restaurant_reviews')
-    .upsert({
+  .from('restaurant_reviews')
+  .upsert([
+    {
       redemption_id: redemptionId,
       restaurant_id: restaurantId,
       user_id: authData.user.id,
       rating,
       comment
-    }, {
-      onConflict: 'redemption_id'
-    });
+    }
+  ], {
+    onConflict: 'redemption_id'
+  });
 
   if(error){
     console.error('Review save error:', error);
