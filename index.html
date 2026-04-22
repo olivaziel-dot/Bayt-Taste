@@ -3635,7 +3635,7 @@ async function submitRedemptionReview(redemptionId, restaurantId){
     return;
   }
 
-  let error = null;
+  let saveError = null;
 
   if(existingReview?.id){
     const res = await supabaseClient
@@ -3648,7 +3648,7 @@ async function submitRedemptionReview(redemptionId, restaurantId){
       })
       .eq('id', existingReview.id);
 
-    error = res.error;
+    saveError = res.error;
   } else {
     const res = await supabaseClient
       .from('restaurant_reviews')
@@ -3660,12 +3660,12 @@ async function submitRedemptionReview(redemptionId, restaurantId){
         comment
       });
 
-    error = res.error;
+    saveError = res.error;
   }
 
-  if(error){
-    console.error('Review save error:', error);
-    toast(error.message || 'Could not save review', 'err');
+  if(saveError){
+    console.error('Review save error:', saveError);
+    toast(saveError.message || 'Could not save review', 'err');
     return;
   }
 
