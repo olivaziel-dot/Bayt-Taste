@@ -1694,6 +1694,7 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
         <div class="sb-sec">Overview</div>
         <div class="sb-link on" onclick="paneM('m-overview',this)"><span class="ico">📊</span>Dashboard</div>
         <div class="sb-link" onclick="paneM('m-activity',this)"><span class="ico">⚡</span>Live Activity</div>
+         <div class="sb-link" onclick="paneM('m-reports',this)"><span class="ico">⚠️</span>Reports</div>
         <div class="sb-sec">Users</div>
         <div class="sb-link" onclick="paneM('m-users',this)"><span class="ico">👥</span>All Members</div>
         <div class="sb-link" onclick="paneM('m-restaurants',this)"><span class="ico">🏪</span>All Restaurants</div>
@@ -1851,6 +1852,17 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
         <div class="rdash-header"><h1>Live Activity</h1><p>Real-time events across the platform.</p></div>
        <div class="activity-feed" id="manager-activity-feed"></div>
       </div>
+       <div class="pane" id="pane-m-reports">
+  <div class="rdash-header">
+    <h1>Reports</h1>
+    <p>Customer reports about restaurants and offers.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">Latest Reports</div>
+    <div class="activity-feed" id="manager-reports-feed"></div>
+  </div>
+</div>
       <!-- REVENUE -->
       <div class="pane" id="pane-m-revenue">
   <div class="rdash-header">
@@ -3413,6 +3425,9 @@ async function paneM(id, linkEl){
   if(id === 'm-activity'){
     await loadManagerActivity();
   }
+   if(id === 'm-reports'){
+  await loadManagerReports();
+}
 
   if(id === 'm-offers'){
     await loadManagerOffers();
@@ -5385,11 +5400,86 @@ async function initManager(){
   await loadManagerUsers();
   await loadManagerRestaurants();
   await loadManagerActivity();
+  await loadManagerReports();
   await loadManagerOffers();
   await loadManagerBannedUsers();
   await loadManagerRevenue();
   await loadManagerPlans();
   await loadPlatformSettings();
+}
+   async function loadManagerReports(){
+  const feed = document.getElementById('manager-reports-feed');
+  if(!feed) return;
+
+  feed.innerHTML = `<div style="color:var(--text-muted)">Loading reports...</div>`;
+
+  const [reportsRes, restaurantsRes, profilesRes] = await Promise.all([
+    supabaseClient
+      .from('offer_reports')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50),
+
+    supabaseClient
+      .from('restaurants')
+      .select('id,name'),
+
+    supabaseClient
+      .from('profiles')
+      .select('id,name,email')
+  ]);
+
+  if(reportsRes.error){
+    console.error('Manager reports error:', reportsRes.error);
+    feed.innerHTML = `<div style="color:var(--red)">Could not load reports</div>`;
+    return;
+  }
+
+  const restaurantMap = {};
+  (restaurantsRes.data || []).forEach(r => {
+    restaurantMap[r.id] = r;
+  });
+
+  const profileMap = {};
+  (profilesRes.data || []).forEach(p => {
+    profileMap[p.id] = p;
+  });
+
+  const reports = reportsRes.data || [];
+
+  if(!reports.length){
+    feed.innerHTML = `<div style="color:var(--text-muted)">No reports yet</div>`;
+    return;
+  }
+
+  feed.innerHTML = reports.map(rep => {
+    const restaurantName = restaurantMap[rep.restaurant_id]?.name || 'Unknown restaurant';
+    const userName = profileMap[rep.reporter_user_id]?.name || profileMap[rep.reporter_user_id]?.email || 'Unknown user';
+
+    const typeLabelMap = {
+      wrong_address: 'Wrong address',
+      wrong_hours: 'Wrong opening hours',
+      offer_not_accepted: 'Offer not accepted',
+      wrong_information: 'Wrong information',
+      staff_issue: 'Staff issue',
+      other: 'Other'
+    };
+
+    const issueLabel = typeLabelMap[rep.issue_type] || rep.issue_type || 'Other';
+
+    return `
+      <div class="activity-item">
+        <div class="act-icon">⚠️</div>
+        <div class="act-text">
+          <strong>${userName}</strong> reported <strong>${restaurantName}</strong><br/>
+          <span style="color:var(--gold)">Type:</span> ${issueLabel}<br/>
+          <span style="color:var(--gold)">Message:</span> ${rep.reason || '-'}<br/>
+          <span style="color:var(--gold)">Status:</span> ${rep.status || 'open'}
+          <div class="act-time">${new Date(rep.created_at).toLocaleString()}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
    async function loadManagerUsers(){
   const { data, error } = await supabaseClient
