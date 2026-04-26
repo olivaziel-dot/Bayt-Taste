@@ -1157,24 +1157,26 @@ footer{padding:72px 44px 36px;border-top:1px solid var(--border)}
         <div style="text-align:right"><div style="font-size:.78rem;color:var(--text-muted);margin-bottom:4px">Member Price</div><div class="price-row-new" id="m-price"></div></div>
       </div>
       <!-- ANTI-CHEAT COUPON -->
-      <div class="coupon-section">
-        <div class="coupon-warning">
-          <span>⚠️</span>
-          <div>This code is <strong style="color:var(--text)">unique to your account</strong> and refreshes every 5 minutes. Screenshots will not work — the restaurant staff verifies the live code at the moment of redemption.</div>
-        </div>
-        <div class="coupon-box">
-          <div class="coupon-left">
-            <div class="coupon-label">Your Live Redemption Code</div>
-            <div class="coupon-code" id="m-code">—</div>
-            <div class="coupon-timer">
-              <div class="timer-dot"></div>
-              Refreshes in <span class="timer-val" id="m-timer">0:00</span>
-            </div>
-          </div>
-          <button class="copy-code-btn" onclick="copyLiveCode()">Copy</button>
-        </div>
-        <div class="coupon-used-warn">Show this code to the restaurant staff. They will verify it's valid in real time.</div>
+<div class="coupon-section">
+  <div class="coupon-warning">
+    <span>⚠️</span>
+    <div>Tap redeem only when you are at the restaurant. The restaurant will receive your request instantly and confirm it.</div>
+  </div>
+
+  <div class="coupon-box">
+    <div class="coupon-left">
+      <div class="coupon-label">Redemption Code</div>
+      <div class="coupon-code" id="m-code">—</div>
+      <div class="coupon-timer">
+        <div class="timer-dot"></div>
+        Expires in <span class="timer-val" id="m-timer">15:00</span>
       </div>
+    </div>
+    <button class="copy-code-btn" onclick="requestRedemption()">Redeem</button>
+  </div>
+
+  <div class="coupon-used-warn">Show this screen to the restaurant. They confirm the same code in their dashboard.</div>
+</div>
        <div style="margin-top:18px;margin-bottom:18px">
   <h4 style="font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:10px">Book a Table</h4>
   <div class="two-col">
@@ -5392,7 +5394,7 @@ function closeModal(){
   document.body.style.overflow='';
   clearInterval(_timerInterval);_timerInterval=null;
 }
-async function copyLiveCode(){
+async function requestRedemption(){
   if(!_modalDeal){
     toast('No deal selected', 'err');
     return;
@@ -5408,52 +5410,49 @@ async function copyLiveCode(){
   const customerId = authData.user.id;
   const codeEl = document.getElementById('m-code');
 
-  const { data: existingIssued, error: existingError } = await supabaseClient
-    .from('redemptions')
+  const { data: existing, error: existingError } = await supabaseClient
+    .from('redemption_requests')
     .select('*')
     .eq('offer_id', _modalDeal.id)
-    .eq('customer_id', customerId)
-    .eq('status', 'issued')
+    .eq('user_id', customerId)
+    .eq('restaurant_id', _modalDeal.restaurant_id)
+    .eq('status', 'pending')
+    .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false })
     .limit(1);
 
   if(existingError){
-    console.error('Existing redemption lookup error:', existingError);
+    console.error('Existing redemption request error:', existingError);
   }
 
-  const existing = existingIssued?.[0];
-
-  if(existing && existing.expires_at && new Date(existing.expires_at) > new Date()){
-    if(codeEl) codeEl.textContent = existing.code;
-    navigator.clipboard.writeText(existing.code).catch(()=>{});
-    toast('Live code copied! ✅', 'ok');
+  if(existing && existing.length){
+    if(codeEl) codeEl.textContent = existing[0].code;
+    toast('Redemption request already sent ✅', 'ok');
     return;
   }
 
-  const code = generateRedemptionCode(_modalDeal.id);
+  const code = String(Math.floor(100000 + Math.random() * 900000));
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
   const { error } = await supabaseClient
-    .from('redemptions')
+    .from('redemption_requests')
     .insert([{
-      offer_id: _modalDeal.id,
-      customer_id: customerId,
+      user_id: customerId,
       restaurant_id: _modalDeal.restaurant_id,
+      offer_id: _modalDeal.id,
       code,
-      status: 'issued',
+      status: 'pending',
       expires_at: expiresAt
     }]);
 
   if(error){
-    console.error('Redemption insert error:', error);
-    toast(error.message || 'Could not issue code', 'err');
+    console.error('Redemption request insert error:', error);
+    toast(error.message || 'Could not send redemption request', 'err');
     return;
   }
 
   if(codeEl) codeEl.textContent = code;
-
-  navigator.clipboard.writeText(code).catch(()=>{});
-  toast('Code copied and issued! ✅', 'ok');
+  toast('Request sent to restaurant ✅', 'ok');
 }
 /* ─── RESTAURANT CODE VERIFIER ─── */
 async function verifyCode(){
